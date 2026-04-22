@@ -4,31 +4,29 @@
 
 **Sprout OS Orbit is the end-to-end QA automation platform for POSIMYTH's Sprout OS product.**
 
-- ✅ Runs all Playwright E2E tests across `sproutos.ai`
-- ✅ Auth · Dashboard · Landing · Pricing · Security · Performance
+- ✅ Runs Playwright E2E tests across `sproutos.ai`
+- ✅ Login Pages · Dashboard · Sitemap · Scope · Design
 - ✅ Multi-viewport (desktop, tablet, mobile)
-- ✅ Lighthouse, axe-a11y, and security-header scanners built in
+- ✅ Lighthouse + axe-a11y helpers included
 
 ---
 
 ## 🔎 What's Covered
 
-### 🔐 Auth Pages — sproutos.ai
-- `/login` · `/signup` · `/forgot-password` · OAuth / social login
+### 🔐 Login Pages
+`/login` · `/signup` · `/forgot-password` · OAuth / social login — form rendering, validation, error states.
 
-### 🖥️ Dashboard — sproutos.ai
-- Main dashboard · user profile · settings · billing
+### 🖥️ Dashboard
+Auth-gated dashboard — user context, settings access, logout flow. **Requires test credentials.**
 
-### 🚀 Landing — sproutos.ai
-- Homepage · product marketing pages · CTAs
+### 🗺️ Sitemap
+`sitemap.xml` + `robots.txt` reachability, schema validity, URL reachability spot-checks.
 
-### 💳 Pricing — sproutos.ai
-- Plans · checkout flow · trial signup
+### 🎯 Scope
+`/scope` route — auth gating, page render, console-error check.
 
-### 🛡️ Security & SEO
-- Security HTTP headers (CSP, HSTS, X-Frame-Options)
-- Meta tags · canonical URLs · Open Graph
-- SSL/TLS configuration
+### 🎨 Design
+`/design` route — auth gating, canvas/editor render, console-error + asset-load checks.
 
 ---
 
@@ -51,7 +49,7 @@ cd sproutos-orbit
 npm install
 npx playwright install
 
-# Copy env template and set your URL
+# Copy env template
 cp qa.config.example.json qa.config.json
 # Create .env with: SPROUTOS_URL=https://sproutos.ai
 
@@ -71,17 +69,17 @@ npm test
 ### Run a single suite
 
 ```bash
-npm run test:auth         # Auth pages (login, signup, forgot password)
-npm run test:dashboard    # Dashboard pages
-npm run test:landing      # Landing / marketing pages
-npm run test:pricing      # Pricing + checkout
-npm run test:security     # Security headers / SSL
+npm run test:login        # Login / Signup / Forgot Password / OAuth
+npm run test:dashboard    # Auth-gated dashboard
+npm run test:sitemap      # sitemap.xml + robots.txt
+npm run test:scope        # /scope route
+npm run test:design       # /design route
 ```
 
 ### Run a single spec
 
 ```bash
-npx playwright test tests/sproutos/auth.spec.js
+npx playwright test tests/sproutos/login-pages.spec.js
 ```
 
 ### Debug / Headed
@@ -110,6 +108,8 @@ TEST_USER_EMAIL=qa@example.com
 TEST_USER_PASSWORD=your-test-password
 ```
 
+`TEST_USER_EMAIL` / `TEST_USER_PASSWORD` are required for `dashboard`, `scope`, and `design` suites. Tests skip gracefully if missing.
+
 ---
 
 ## 📂 Repo Layout
@@ -118,10 +118,15 @@ TEST_USER_PASSWORD=your-test-password
 sproutos-orbit/
 ├── checklists/              # Manual QA checklists
 ├── config/                  # Runtime config
-├── docs/                    # Testing guides & concepts
-├── scripts/                 # Helper scripts (lighthouse, run-all)
+├── docs/                    # Testing guides
+├── scripts/                 # Helpers (lighthouse, run-all)
 ├── tests/
-│   └── sproutos/            # Sprout OS Playwright specs
+│   └── sproutos/
+│       ├── login-pages.spec.js
+│       ├── dashboard.spec.js
+│       ├── sitemap.spec.js
+│       ├── scope.spec.js
+│       └── design.spec.js
 ├── playwright.config.js     # Playwright projects (desktop/tablet/mobile)
 ├── qa.config.example.json   # QA config template
 └── package.json

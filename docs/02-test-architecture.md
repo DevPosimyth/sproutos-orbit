@@ -6,17 +6,17 @@
 sproutos-orbit/
 ├── tests/
 │   └── sproutos/
-│       ├── auth.spec.js        # /login /signup /forgot-password / OAuth
-│       ├── landing.spec.js     # Homepage + SEO + CTAs
-│       ├── dashboard.spec.js   # Auth-gated dashboard (needs credentials)
-│       ├── pricing.spec.js     # Pricing plans + checkout CTAs
-│       └── security.spec.js    # HTTP security headers
-├── checklists/                 # Manual QA checklists
-├── config/                     # Lighthouse CI config
-├── docs/                       # These docs
-├── scripts/                    # Shell helpers (run-all, lighthouse)
-├── playwright.config.js        # Viewports + projects
-└── qa.config.example.json      # Runtime config template
+│       ├── login-pages.spec.js  # /login /signup /forgot-password / OAuth
+│       ├── dashboard.spec.js    # Auth-gated dashboard (needs credentials)
+│       ├── sitemap.spec.js      # sitemap.xml, robots.txt, URL reachability
+│       ├── scope.spec.js        # /scope route + auth gating
+│       └── design.spec.js       # /design route + auth gating
+├── checklists/                  # Manual QA checklists
+├── config/                      # Lighthouse CI config
+├── docs/                        # These docs
+├── scripts/                     # Shell helpers (run-all, lighthouse)
+├── playwright.config.js         # Viewports + projects
+└── qa.config.example.json       # Runtime config template
 ```
 
 ## Projects (Viewports)
@@ -37,20 +37,20 @@ npx playwright test --project=sproutos-desktop
 
 ## Test Categories
 
-### 1. Auth (`auth.spec.js`)
-Public-facing, no credentials required. Checks form rendering, validation, error states, and OAuth button presence.
+### 1. Login Pages (`login-pages.spec.js`)
+Public-facing, no credentials required. Checks form rendering, validation, error states, and OAuth button presence across `/login`, `/signup`, `/forgot-password`.
 
-### 2. Landing (`landing.spec.js`)
-Public homepage — SEO tags, CTAs, console errors, broken images.
-
-### 3. Dashboard (`dashboard.spec.js`)
+### 2. Dashboard (`dashboard.spec.js`)
 **Requires `TEST_USER_EMAIL` + `TEST_USER_PASSWORD`** in `.env`. Tests are skipped if not configured. Also tests auth-gating for unauthenticated users.
 
-### 4. Pricing (`pricing.spec.js`)
-Plan cards, currency display, billing toggle, CTA buttons.
+### 3. Sitemap (`sitemap.spec.js`)
+Verifies `sitemap.xml` and `robots.txt` are reachable, well-formed, and that listed URLs resolve (spot-checks first 10).
 
-### 5. Security (`security.spec.js`)
-HSTS, X-Content-Type-Options, X-Frame-Options, Referrer-Policy, CSP, HTTP→HTTPS redirect.
+### 4. Scope (`scope.spec.js`)
+Auth-gated `/scope` route. Loads page, checks main region renders, no console errors. Feature-specific assertions are TODO until flows are documented.
+
+### 5. Design (`design.spec.js`)
+Auth-gated `/design` route. Loads page, checks canvas/editor region, no console errors, no failed same-origin asset requests. Feature-specific assertions are TODO until flows are documented.
 
 ## Reports
 

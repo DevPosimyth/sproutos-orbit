@@ -7,11 +7,11 @@
     "test:headed": "playwright test --headed",
     "test:report": "playwright test --reporter=html",
     "test:ai": "playwright test --reporter=json",
-    "test:auth": "playwright test tests/sproutos/auth.spec.js",
+    "test:login": "playwright test tests/sproutos/login-pages.spec.js",
     "test:dashboard": "playwright test tests/sproutos/dashboard.spec.js",
-    "test:landing": "playwright test tests/sproutos/landing.spec.js",
-    "test:pricing": "playwright test tests/sproutos/pricing.spec.js",
-    "test:security": "playwright test tests/sproutos/security.spec.js"
+    "test:sitemap": "playwright test tests/sproutos/sitemap.spec.js",
+    "test:scope": "playwright test tests/sproutos/scope.spec.js",
+    "test:design": "playwright test tests/sproutos/design.spec.js"
   },
   "keywords": ["sproutos", "qa", "playwright", "automation", "posimyth"],
   "author": "POSIMYTH",

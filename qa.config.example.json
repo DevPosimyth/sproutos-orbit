@@ -13,15 +13,11 @@
       "name": "Sprout OS",
       "url": "https://sproutos.ai",
       "testAreas": [
-        "landing",
-        "auth-login",
-        "auth-signup",
-        "auth-forgot-password",
+        "login-pages",
         "dashboard",
-        "pricing",
-        "settings",
-        "security-headers",
-        "seo"
+        "sitemap",
+        "scope",
+        "design"
       ]
     }
   },
@@ -42,14 +38,11 @@
   "qaFocus": {
     "priority": "full",
     "testAreas": [
-      "auth",
-      "landing",
+      "login-pages",
       "dashboard",
-      "pricing",
-      "security",
-      "responsive",
-      "accessibility",
-      "visual-regression"
+      "sitemap",
+      "scope",
+      "design"
     ]
   },
 
