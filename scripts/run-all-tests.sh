@@ -28,6 +28,8 @@ BASE_URL="${SPROUTOS_URL:-https://sproutos.ai}"
 TIMESTAMP=$(date +"%Y-%m-%d_%H-%M-%S")
 REPORT_DIR="reports"
 SUMMARY_FILE="$REPORT_DIR/qa-summary-$TIMESTAMP.md"
+BUG_REPORT_FILE="docs/dashboard-qa-report.md"
+PW_JSON_OUTPUT="$REPORT_DIR/playwright-results.json"
 
 # ── Flags ─────────────────────────────────────────────────────────────────────
 SKIP_LIGHTHOUSE=false
@@ -109,7 +111,7 @@ echo -e "   Mode    : $([ "$QUICK" = true ] && echo 'Quick (no Lighthouse)' || e
 echo -e "   Started : $TIMESTAMP"
 
 mkdir -p "$REPORT_DIR/playwright-html" "$REPORT_DIR/lighthouse" \
-         "$REPORT_DIR/a11y" "$REPORT_DIR/seo" "$REPORT_DIR/links"
+         "$REPORT_DIR/a11y" "$REPORT_DIR/seo" "$REPORT_DIR/links" "docs"
 
 # ─────────────────────────────────────────────────────────────────────────────
 # PHASE 1 — ENVIRONMENT & DEPENDENCY CHECK
@@ -439,11 +441,11 @@ npx playwright test tests/sproutos/homepage.spec.js $PW_ARGS --reporter=list 2>&
 info "Running: Auth / Login suite"
 npx playwright test tests/sproutos/login-pages.spec.js $PW_ARGS --reporter=list 2>&1 | tail -5 || PW_FAIL=$((PW_FAIL+1))
 
-info "Running: Dashboard suite"
-npx playwright test tests/sproutos/dashboard.spec.js $PW_ARGS --reporter=list 2>&1 | tail -5 || PW_FAIL=$((PW_FAIL+1))
-
-info "Running: Dashboard UI suite (prompt, spaces, recent projects)"
-npx playwright test tests/sproutos/dashboard-ui.spec.js $PW_ARGS --reporter=list 2>&1 | tail -5 || PW_FAIL=$((PW_FAIL+1))
+info "Running: Dashboard suite (home, sidebar, workspace, settings, security)"
+npx playwright test tests/sproutos/dashboard/ $PW_ARGS \
+  --project=sproutos-desktop \
+  --reporter=list,json \
+  --output-file="$PW_JSON_OUTPUT" 2>&1 | tail -5 || PW_FAIL=$((PW_FAIL+1))
 
 info "Running: Sitemap suite"
 npx playwright test tests/sproutos/sitemap.spec.js $PW_ARGS --reporter=list 2>&1 | tail -5 || PW_FAIL=$((PW_FAIL+1))
@@ -456,7 +458,7 @@ npx playwright test tests/sproutos/scope.spec.js $PW_ARGS --reporter=list 2>&1 |
 
 # Full HTML report
 info "Generating full HTML report..."
-npx playwright test $PW_ARGS --reporter=html 2>&1 | tail -3 || true
+npx playwright test tests/sproutos/dashboard/ --project=sproutos-desktop $PW_ARGS --reporter=html 2>&1 | tail -3 || true
 
 if [ $PW_FAIL -eq 0 ]; then
   pass "All Playwright suites passed"
@@ -699,10 +701,158 @@ if [ "$SKIP_LIGHTHOUSE" = false ]; then
 fi
 
 # ─────────────────────────────────────────────────────────────────────────────
-# PHASE 12 — QA SUMMARY REPORT (Markdown)
+# PHASE 12 — QA SUMMARY REPORT + BUG REPORT (Markdown)
 # ─────────────────────────────────────────────────────────────────────────────
-log_phase 12 "Generating QA Summary Report"
+log_phase 12 "Generating QA Summary Report & Bug Report"
 
+# ── Parse Playwright JSON → Bug Report ────────────────────────────────────────
+BUG_COUNT=0
+if [ -f "$PW_JSON_OUTPUT" ] && command -v node &>/dev/null; then
+  info "Parsing test failures → generating bug report..."
+
+  BUG_COUNT=$(node - "$PW_JSON_OUTPUT" "$BUG_REPORT_FILE" "$BASE_URL" "$TIMESTAMP" <<'JSEOF'
+const fs   = require('fs');
+const path = require('path');
+
+const [,, jsonFile, outFile, baseUrl, timestamp] = process.argv;
+
+let raw;
+try { raw = JSON.parse(fs.readFileSync(jsonFile, 'utf8')); }
+catch (e) { console.error('Could not parse JSON:', e.message); process.exit(0); }
+
+// ── Flatten all tests from nested suites ─────────────────────────────────────
+function flattenTests(suite, parents = []) {
+  const results = [];
+  const title = suite.title || '';
+  const chain = title ? [...parents, title] : parents;
+  for (const t of (suite.tests || [])) {
+    results.push({ ...t, suitePath: chain });
+  }
+  for (const s of (suite.suites || [])) {
+    results.push(...flattenTests(s, chain));
+  }
+  return results;
+}
+
+const allTests = [];
+for (const suite of (raw.suites || [])) {
+  allTests.push(...flattenTests(suite));
+}
+
+const failed = allTests.filter(t => t.status === 'failed' || t.status === 'unexpected');
+
+if (failed.length === 0) {
+  const content = `# Sprout OS — Dashboard QA Bug Report\n**Date:** ${new Date().toISOString().split('T')[0]}\n**Target:** ${baseUrl}\n**Run ID:** ${timestamp}\n\n---\n\n## ✅ All Tests Passed\n\nNo failures detected in this run.\n`;
+  fs.writeFileSync(outFile, content);
+  console.log('0');
+  process.exit(0);
+}
+
+// ── Priority heuristic ────────────────────────────────────────────────────────
+function getPriority(suitePath, title) {
+  const ctx = [...suitePath, title].join(' ').toLowerCase();
+  if (/auth gat|unauthenticated|csrf|xss|session cookie|clickjack/i.test(ctx)) return 'CRITICAL';
+  if (/security|console error|invite|guided brief|spin up|performance|paddle|not found|timeout|blocked/i.test(ctx)) return 'HIGH';
+  if (/navigation|click|hover|3-dot|load time|api health|polling|failed network|create.manage|member list/i.test(ctx)) return 'MEDIUM';
+  return 'LOW';
+}
+
+// ── Extract clean error message ───────────────────────────────────────────────
+function getError(test) {
+  for (const result of (test.results || [])) {
+    const msg = result?.error?.message || '';
+    if (msg) {
+      return msg
+        .replace(/\x1b\[[0-9;]*m/g, '')   // strip ANSI
+        .split('\n').slice(0, 3).join(' ') // first 3 lines
+        .trim();
+    }
+  }
+  return 'Test failed — see Playwright HTML report for details.';
+}
+
+// ── Build steps-to-reproduce from suite path ─────────────────────────────────
+function getSteps(suitePath, title) {
+  const area = suitePath.filter(s => !s.includes('sproutos-desktop') && !s.includes('.spec')).join(' > ');
+  return `1. Log in to ${baseUrl}\n2. Navigate to the section: **${area || 'Dashboard'}**\n3. Perform the action: "${title}"\n4. Observe the result`;
+}
+
+// ── Build expected result from test title ─────────────────────────────────────
+function getExpected(title) {
+  return `The test "${title}" should pass without error. The feature should work as described in the test name.`;
+}
+
+// ── Group by priority ─────────────────────────────────────────────────────────
+const priority_order = ['CRITICAL', 'HIGH', 'MEDIUM', 'LOW'];
+const grouped = { CRITICAL: [], HIGH: [], MEDIUM: [], LOW: [] };
+for (const t of failed) {
+  const p = getPriority(t.suitePath, t.title);
+  grouped[p].push(t);
+}
+
+// ── Write report ──────────────────────────────────────────────────────────────
+const lines = [];
+const runDate = new Date().toISOString().split('T')[0];
+const stats   = raw.stats || {};
+const passed  = stats.expected  || 0;
+const total   = stats.total     || allTests.length;
+const skipped = stats.skipped   || 0;
+
+lines.push(`# Sprout OS — Dashboard QA Bug Report`);
+lines.push(`**Date:** ${runDate}  |  **Target:** ${baseUrl}  |  **Run:** ${timestamp}`);
+lines.push(`**Result:** ${passed} passed · ${failed.length} failed · ${skipped} skipped / ${total} total`);
+lines.push('');
+lines.push('---');
+lines.push('');
+
+let bugNum = 0;
+for (const priority of priority_order) {
+  const bugs = grouped[priority];
+  if (bugs.length === 0) continue;
+  lines.push(`## ${priority} Priority (${bugs.length} issue${bugs.length > 1 ? 's' : ''})`);
+  lines.push('');
+
+  for (const t of bugs) {
+    bugNum++;
+    const suite = t.suitePath.filter(s => !s.includes('sproutos-') && !s.includes('.spec')).join(' › ');
+    const err   = getError(t);
+
+    lines.push(`### BUG-${String(bugNum).padStart(2, '0')} · ${priority}`);
+    lines.push(`**Bug Short Name:** ${t.title}`);
+    lines.push(`**Suite:** ${suite}`);
+    lines.push('');
+    lines.push(`**Issue:**`);
+    lines.push(`${err}`);
+    lines.push('');
+    lines.push(`**Steps to Reproduce:**`);
+    lines.push(getSteps(t.suitePath, t.title));
+    lines.push('');
+    lines.push(`**Expected Result:**`);
+    lines.push(getExpected(t.title));
+    lines.push('');
+    lines.push('---');
+    lines.push('');
+  }
+}
+
+lines.push(`*Generated automatically by Sprout OS Orbit QA Runner — ${runDate}*`);
+
+fs.writeFileSync(outFile, lines.join('\n'));
+console.log(String(bugNum));
+JSEOF
+  )
+
+  if [ "$BUG_COUNT" = "0" ]; then
+    pass "No failures — bug report clean: $BUG_REPORT_FILE"
+  else
+    warn "$BUG_COUNT bugs written to: $BUG_REPORT_FILE"
+  fi
+else
+  warn "Playwright JSON output not found — skipping bug report generation"
+  warn "Run with dashboard suite to generate: npx playwright test tests/sproutos/dashboard/"
+fi
+
+# ── QA Summary report ─────────────────────────────────────────────────────────
 cat > "$SUMMARY_FILE" <<MDEOF
 # Sprout OS — Extreme Polish QA Summary Report
 
@@ -726,6 +876,7 @@ $(for r in "${PHASE_RESULTS[@]}"; do echo "$r"; done)
 - **Passed:** $PASSED_PHASES
 - **Failed:** $FAILED_PHASES
 - **Pass rate:** $(echo "scale=0; $PASSED_PHASES * 100 / $TOTAL_PHASES" | bc 2>/dev/null || echo "N/A")%
+- **Bugs found:** $BUG_COUNT
 
 ---
 
@@ -734,6 +885,7 @@ $(for r in "${PHASE_RESULTS[@]}"; do echo "$r"; done)
 | Type | File |
 |------|------|
 | Playwright HTML | reports/playwright-html/index.html |
+| **Bug Report** | **$BUG_REPORT_FILE** |
 | SEO Audit | reports/seo/seo-audit-$TIMESTAMP.md |
 | Console Errors | reports/seo/console-errors-$TIMESTAMP.md |
 | Broken Links | reports/links/broken-links-$TIMESTAMP.md |
@@ -744,14 +896,14 @@ $(for r in "${PHASE_RESULTS[@]}"; do echo "$r"; done)
 
 ## Next Steps
 
-1. Open \`reports/playwright-html/index.html\` for detailed test results
-2. Review high-priority failures in the QA bug report: \`docs/dashboard-qa-report.md\`
-3. Fix onboarding tour overlay blocking interactive elements (3 High issues)
-4. Address SEO gaps if any meta tags are missing
+1. Open \`reports/playwright-html/index.html\` for the full Playwright test breakdown
+2. Review \`$BUG_REPORT_FILE\` — $BUG_COUNT bug(s) found, sorted by priority
+3. Fix CRITICAL issues first (auth gating, security)
+4. Address HIGH issues (console errors, broken interactions)
 5. Review accessibility violations by impact level (Critical → Serious → Moderate)
 MDEOF
 
-pass "Summary report saved: $SUMMARY_FILE"
+pass "QA summary saved: $SUMMARY_FILE"
 
 # ─────────────────────────────────────────────────────────────────────────────
 # FINAL RESULT
@@ -774,7 +926,8 @@ else
 fi
 
 echo ""
-echo -e "  Full report: ${CYAN}$SUMMARY_FILE${NC}"
+echo -e "  QA summary : ${CYAN}$SUMMARY_FILE${NC}"
+echo -e "  Bug report : ${CYAN}$BUG_REPORT_FILE${NC}  ($BUG_COUNT bugs)"
 
 # Open HTML report if requested
 if [ "$OPEN_HTML" = true ] && command -v open &>/dev/null; then
