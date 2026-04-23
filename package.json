@@ -18,6 +18,7 @@
     "test:sitemap": "playwright test tests/sproutos/sitemap.spec.js",
     "test:scope": "playwright test tests/sproutos/scope.spec.js",
     "test:design": "playwright test tests/sproutos/design.spec.js",
+    "dashboard:report": "bash scripts/dashboard-report.sh",
     "qa": "bash scripts/run-all-tests.sh",
     "qa:quick": "bash scripts/run-all-tests.sh --quick",
     "qa:full": "bash scripts/run-all-tests.sh --html",

@@ -21,7 +21,10 @@ set -euo pipefail
 
 # ── Load .env ─────────────────────────────────────────────────────────────────
 if [ -f .env ]; then
-  export $(grep -v '^#' .env | xargs -d '\n') 2>/dev/null || true
+  set -a
+  # shellcheck source=.env
+  source .env 2>/dev/null || true
+  set +a
 fi
 
 BASE_URL="${SPROUTOS_URL:-https://sproutos.ai}"
@@ -195,31 +198,31 @@ if [ "$SKIP_SEO" = false ]; then
   HTML=$(curl -s --max-time 15 "$BASE_URL")
 
   # Title tag
-  TITLE=$(echo "$HTML" | grep -oP '(?<=<title>)[^<]+' | head -1)
+  TITLE=$(echo "$HTML" | perl -ne 'print "$1\n" if /<title>([^<]+)/i' | head -1)
   [ -n "$TITLE" ] && seo_check "Title tag present" "$TITLE" "." || { fail "Title tag missing"; SEO_FAIL=$((SEO_FAIL+1)); }
   [ ${#TITLE} -le 60 ] && pass "Title length ≤60 chars (${#TITLE})" || warn "Title length ${#TITLE} — ideal is ≤60"
 
   # Meta description
-  META_DESC=$(echo "$HTML" | grep -oP 'name="description"\s+content="\K[^"]+' | head -1)
+  META_DESC=$(echo "$HTML" | perl -ne 'print "$1\n" if /name="description"\s+content="([^"]+)"/i' | head -1)
   [ -n "$META_DESC" ] && seo_check "Meta description present" "$META_DESC" "." || { fail "Meta description missing"; SEO_FAIL=$((SEO_FAIL+1)); }
   [ ${#META_DESC} -le 160 ] && pass "Meta description length ≤160 (${#META_DESC})" || warn "Meta description ${#META_DESC} chars — ideal ≤160"
 
   # OG tags
-  OG_TITLE=$(echo "$HTML" | grep -oP 'property="og:title"\s+content="\K[^"]+' | head -1)
+  OG_TITLE=$(echo "$HTML" | perl -ne 'print "$1\n" if /property="og:title"\s+content="([^"]+)"/i' | head -1)
   seo_check "OG title tag" "${OG_TITLE:-MISSING}" "."
 
-  OG_DESC=$(echo "$HTML" | grep -oP 'property="og:description"\s+content="\K[^"]+' | head -1)
+  OG_DESC=$(echo "$HTML" | perl -ne 'print "$1\n" if /property="og:description"\s+content="([^"]+)"/i' | head -1)
   seo_check "OG description tag" "${OG_DESC:-MISSING}" "."
 
-  OG_IMAGE=$(echo "$HTML" | grep -oP 'property="og:image"\s+content="\K[^"]+' | head -1)
+  OG_IMAGE=$(echo "$HTML" | perl -ne 'print "$1\n" if /property="og:image"\s+content="([^"]+)"/i' | head -1)
   seo_check "OG image tag" "${OG_IMAGE:-MISSING}" "."
 
   # Twitter card
-  TW_CARD=$(echo "$HTML" | grep -oP 'name="twitter:card"\s+content="\K[^"]+' | head -1)
+  TW_CARD=$(echo "$HTML" | perl -ne 'print "$1\n" if /name="twitter:card"\s+content="([^"]+)"/i' | head -1)
   seo_check "Twitter card tag" "${TW_CARD:-MISSING}" "."
 
   # Canonical URL
-  CANONICAL=$(echo "$HTML" | grep -oP 'rel="canonical"\s+href="\K[^"]+' | head -1)
+  CANONICAL=$(echo "$HTML" | perl -ne 'print "$1\n" if /rel="canonical"\s+href="([^"]+)"/i' | head -1)
   seo_check "Canonical URL present" "${CANONICAL:-MISSING}" "^https://"
 
   # Viewport meta
@@ -227,7 +230,7 @@ if [ "$SKIP_SEO" = false ]; then
   seo_check "Viewport meta tag" "${VIEWPORT:-MISSING}" "viewport"
 
   # H1 tag
-  H1=$(echo "$HTML" | grep -oP '(?<=<h1[^>]*>)[^<]+' | head -1)
+  H1=$(echo "$HTML" | perl -ne 'print "$1\n" if /<h1[^>]*>([^<]+)/i' | head -1)
   seo_check "H1 tag present" "${H1:-MISSING}" "."
 
   # Sitemap.xml
@@ -325,7 +328,7 @@ if [ "$SKIP_LINKS" = false ]; then
   HTML=$(curl -s --max-time 15 "$BASE_URL")
 
   # Extract all hrefs
-  LINKS=$(echo "$HTML" | grep -oP 'href="\K[^"]+' | sort -u | grep -vE '^#|^mailto:|^tel:|^javascript:')
+  LINKS=$(echo "$HTML" | perl -ne 'while (/href="([^"]+)"/g) { print "$1\n" }' | sort -u | grep -vE '^#|^mailto:|^tel:|^javascript:')
 
   CHECKED=0
   BROKEN=0
