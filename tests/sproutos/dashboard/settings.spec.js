@@ -45,32 +45,25 @@ test.describe('Settings Tab — UI & Layout', () => {
   test('settings heading or label is visible', async ({ page }) => {
     await goToSettings(page);
     const heading = page.locator('h1, h2, h3').filter({ hasText: /settings|profile|account/i }).first();
-    const isVisible = await heading.isVisible({ timeout: 5000 }).catch(() => false);
-    if (!isVisible) test.skip(true, 'Settings heading not found');
-    await expect(heading).toBeVisible();
+    await expect(heading).toBeVisible({ timeout: 8000 });
   });
 
   test('first name input field is visible', async ({ page }) => {
     await goToSettings(page);
     const input = page.locator('input[name*="first"], input[placeholder*="first"], input[id*="first"]').first();
-    const visible = await input.isVisible({ timeout: 8000 }).catch(() => false);
-    if (!visible) test.skip(true, 'First name input not found');
-    await expect(input).toBeVisible();
+    await expect(input).toBeVisible({ timeout: 8000 });
   });
 
   test('last name input field is visible', async ({ page }) => {
     await goToSettings(page);
     const input = page.locator('input[name*="last"], input[placeholder*="last"], input[id*="last"]').first();
-    const visible = await input.isVisible({ timeout: 8000 }).catch(() => false);
-    if (!visible) test.skip(true, 'Last name input not found');
-    await expect(input).toBeVisible();
+    await expect(input).toBeVisible({ timeout: 8000 });
   });
 
   test('email field is visible and pre-filled', async ({ page }) => {
     await goToSettings(page);
     const emailInput = page.locator('input[type="email"], input[name*="email"], input[placeholder*="email"]').first();
-    const visible = await emailInput.isVisible({ timeout: 8000 }).catch(() => false);
-    if (!visible) test.skip(true, 'Email input not found');
+    await expect(emailInput).toBeVisible({ timeout: 8000 });
     const val = await emailInput.inputValue();
     expect(val.length).toBeGreaterThan(0);
   });
@@ -78,9 +71,23 @@ test.describe('Settings Tab — UI & Layout', () => {
   test('save/update profile button is present', async ({ page }) => {
     await goToSettings(page);
     const btn = page.locator('button').filter({ hasText: /save|update|apply/i }).first();
-    const visible = await btn.isVisible({ timeout: 8000 }).catch(() => false);
-    if (!visible) test.skip(true, 'Save button not found');
-    await expect(btn).toBeVisible();
+    await expect(btn).toBeVisible({ timeout: 8000 });
+  });
+
+  test('first name field pre-filled with user\'s actual name', async ({ page }) => {
+    await goToSettings(page);
+    const input = page.locator('input[name*="first"], input[placeholder*="first"], input[id*="first"]').first();
+    await expect(input).toBeVisible({ timeout: 8000 });
+    const val = await input.inputValue();
+    expect(val.trim().length).toBeGreaterThan(0);
+  });
+
+  test('email field shows the logged-in user\'s email', async ({ page }) => {
+    await goToSettings(page);
+    const emailInput = page.locator('input[type="email"], input[name*="email"], input[placeholder*="email"]').first();
+    await expect(emailInput).toBeVisible({ timeout: 8000 });
+    const val = await emailInput.inputValue();
+    expect(val).toBe(TEST_EMAIL);
   });
 
 });
@@ -93,24 +100,18 @@ test.describe('Settings Tab — Avatar Upload', () => {
   test('avatar/profile picture upload area is visible', async ({ page }) => {
     await goToSettings(page);
     const uploadArea = page.locator(
-      'input[type="file"], [class*="avatar"], [class*="Avatar"], [class*="upload"], label[for*="avatar"], label[for*="photo"]'
+      '[class*="avatar"], [class*="Avatar"], [class*="upload"], label[for*="avatar"], label[for*="photo"]'
     ).first();
-    const visible = await uploadArea.isVisible({ timeout: 8000 }).catch(() => false);
-    if (!visible) test.skip(true, 'Avatar upload not found');
-    await expect(uploadArea).toBeTruthy();
+    await expect(uploadArea).toBeVisible({ timeout: 8000 });
   });
 
   test('avatar file input accepts image MIME types', async ({ page }) => {
     await goToSettings(page);
+    // file inputs can be hidden behind label buttons — count is sufficient
     const fileInput = page.locator('input[type="file"]').first();
-    const visible = await fileInput.isVisible({ timeout: 5000 }).catch(() => false);
-    if (!visible) {
-      // file inputs can be hidden behind label buttons
-      const hiddenInput = page.locator('input[type="file"]').first();
-      const exists = await hiddenInput.count();
-      if (exists === 0) test.skip(true, 'File input not found');
-    }
-    const accept = await page.locator('input[type="file"]').first().getAttribute('accept').catch(() => null);
+    const count = await fileInput.count();
+    expect(count).toBeGreaterThan(0);
+    const accept = await fileInput.getAttribute('accept').catch(() => null);
     if (accept !== null) {
       expect(accept).toMatch(/image|png|jpg|jpeg|webp/i);
     }
@@ -119,9 +120,7 @@ test.describe('Settings Tab — Avatar Upload', () => {
   test('current avatar/profile image is displayed', async ({ page }) => {
     await goToSettings(page);
     const img = page.locator('[class*="avatar"] img, [class*="Avatar"] img, [class*="profile"] img').first();
-    const visible = await img.isVisible({ timeout: 8000 }).catch(() => false);
-    if (!visible) test.skip(true, 'Avatar image not visible');
-    await expect(img).toBeVisible();
+    await expect(img).toBeVisible({ timeout: 8000 });
   });
 
 });
@@ -136,9 +135,7 @@ test.describe('Settings Tab — Password Change', () => {
     const current = page.locator(
       'input[name*="current"], input[placeholder*="current"], input[autocomplete="current-password"]'
     ).first();
-    const visible = await current.isVisible({ timeout: 8000 }).catch(() => false);
-    if (!visible) test.skip(true, 'Current password field not found');
-    await expect(current).toBeVisible();
+    await expect(current).toBeVisible({ timeout: 8000 });
   });
 
   test('new password field is present', async ({ page }) => {
@@ -146,16 +143,13 @@ test.describe('Settings Tab — Password Change', () => {
     const newPass = page.locator(
       'input[name*="new"], input[placeholder*="new"], input[autocomplete="new-password"]'
     ).first();
-    const visible = await newPass.isVisible({ timeout: 8000 }).catch(() => false);
-    if (!visible) test.skip(true, 'New password field not found');
-    await expect(newPass).toBeVisible();
+    await expect(newPass).toBeVisible({ timeout: 8000 });
   });
 
   test('password fields default to type="password" (masked)', async ({ page }) => {
     await goToSettings(page);
     const pwInputs = page.locator('input[type="password"]');
     const count = await pwInputs.count();
-    if (count === 0) test.skip(true, 'No password fields found');
     expect(count).toBeGreaterThanOrEqual(1);
   });
 
@@ -164,23 +158,18 @@ test.describe('Settings Tab — Password Change', () => {
     const toggle = page.locator(
       'button[aria-label*="show"], button[aria-label*="hide"], button[aria-label*="password"], [class*="eye"], [class*="toggle-pass"]'
     ).first();
-    const visible = await toggle.isVisible({ timeout: 5000 }).catch(() => false);
-    if (!visible) test.skip(true, 'Password toggle not found');
-    await expect(toggle).toBeVisible();
+    await expect(toggle).toBeVisible({ timeout: 5000 });
   });
 
   test('clicking show/hide toggle reveals password text', async ({ page }) => {
     await goToSettings(page);
     const pwInput = page.locator('input[type="password"]').first();
-    const visible = await pwInput.isVisible({ timeout: 5000 }).catch(() => false);
-    if (!visible) test.skip(true, 'Password field not found');
+    await expect(pwInput).toBeVisible({ timeout: 8000 });
 
     const toggle = page.locator(
       'button[aria-label*="show"], button[aria-label*="hide"], [class*="eye"]'
     ).first();
-    if (!await toggle.isVisible({ timeout: 3000 }).catch(() => false)) {
-      test.skip(true, 'No toggle button found');
-    }
+    await expect(toggle).toBeVisible({ timeout: 5000 });
     await pwInput.fill('TestP@ss123');
     await toggle.click();
     await page.waitForTimeout(300);
@@ -200,22 +189,20 @@ test.describe('Settings Tab — Password Change', () => {
     await newPass.fill('NewPass@123');
     await confirmPass.fill('DifferentPass@456');
     const submitBtn = page.locator('button').filter({ hasText: /save|update|change password/i }).first();
-    if (await submitBtn.isVisible({ timeout: 3000 }).catch(() => false)) {
-      await submitBtn.click();
-      await page.waitForTimeout(800);
-      const error = page.locator('[class*="error"], [role="alert"], [class*="toast"]').filter({ hasText: /match|mismatch|same/i }).first();
-      const shown = await error.isVisible({ timeout: 3000 }).catch(() => false);
-      // Validation error should appear — pass if shown, skip if UI uses different pattern
-      if (!shown) test.skip(true, 'No mismatch error found — may use different validation pattern');
-      await expect(error).toBeVisible();
-    }
+    await expect(submitBtn).toBeVisible({ timeout: 5000 });
+    await submitBtn.click();
+    await page.waitForTimeout(800);
+    const error = page.locator('[class*="error"], [role="alert"], [class*="toast"]').filter({ hasText: /match|mismatch|same/i }).first();
+    const shown = await error.isVisible({ timeout: 3000 }).catch(() => false);
+    // Validation error should appear — pass if shown, skip if UI uses different pattern
+    if (!shown) test.skip(true, 'No mismatch error found — may use different validation pattern');
+    await expect(error).toBeVisible();
   });
 
   test('empty password fields show required validation', async ({ page }) => {
     await goToSettings(page);
     const saveBtn = page.locator('button').filter({ hasText: /save|update|change/i }).first();
-    const visible = await saveBtn.isVisible({ timeout: 5000 }).catch(() => false);
-    if (!visible) test.skip(true, 'Save button not found');
+    await expect(saveBtn).toBeVisible({ timeout: 8000 });
     // Clear any pre-filled values and submit
     const pwField = page.locator('input[type="password"]').first();
     if (await pwField.isVisible({ timeout: 3000 }).catch(() => false)) {
@@ -237,8 +224,7 @@ test.describe('Settings Tab — Profile Update', () => {
   test('first name field accepts text input', async ({ page }) => {
     await goToSettings(page);
     const input = page.locator('input[name*="first"], input[placeholder*="first"], input[id*="first"]').first();
-    const visible = await input.isVisible({ timeout: 8000 }).catch(() => false);
-    if (!visible) test.skip(true, 'First name input not found');
+    await expect(input).toBeVisible({ timeout: 8000 });
     const original = await input.inputValue();
     await input.fill('QATest');
     expect(await input.inputValue()).toBe('QATest');
@@ -248,39 +234,33 @@ test.describe('Settings Tab — Profile Update', () => {
   test('last name field accepts text input', async ({ page }) => {
     await goToSettings(page);
     const input = page.locator('input[name*="last"], input[placeholder*="last"], input[id*="last"]').first();
-    const visible = await input.isVisible({ timeout: 8000 }).catch(() => false);
-    if (!visible) test.skip(true, 'Last name input not found');
+    await expect(input).toBeVisible({ timeout: 8000 });
     const original = await input.inputValue();
     await input.fill('AutoTester');
     expect(await input.inputValue()).toBe('AutoTester');
     await input.fill(original);
   });
 
-  test('profile update shows success feedback on valid save', async ({ page }) => {
+  test('saving profile with no changes shows success feedback', async ({ page }) => {
     await goToSettings(page);
     const firstInput = page.locator('input[name*="first"], input[id*="first"]').first();
-    const visible = await firstInput.isVisible({ timeout: 8000 }).catch(() => false);
-    if (!visible) test.skip(true, 'First name input not found');
+    await expect(firstInput).toBeVisible({ timeout: 8000 });
 
     const original = await firstInput.inputValue();
+    // Re-fill with same value to trigger save without actual changes
     await firstInput.fill(original || 'QATester');
     const saveBtn = page.locator('button').filter({ hasText: /save|update/i }).first();
-    if (!await saveBtn.isVisible({ timeout: 3000 }).catch(() => false)) {
-      test.skip(true, 'Save button not found');
-    }
+    await expect(saveBtn).toBeVisible({ timeout: 5000 });
     await saveBtn.click();
-    await page.waitForTimeout(1500);
+    // Assert success toast/alert appears
     const success = page.locator('[class*="toast"], [role="alert"], [class*="success"]').first();
-    const shown = await success.isVisible({ timeout: 4000 }).catch(() => false);
-    if (!shown) test.skip(true, 'Success toast/alert not visible — may use different feedback pattern');
-    await expect(success).toBeVisible();
+    await expect(success).toBeVisible({ timeout: 6000 });
   });
 
   test('email field is read-only (cannot be changed directly)', async ({ page }) => {
     await goToSettings(page);
     const emailInput = page.locator('input[type="email"], input[name*="email"]').first();
-    const visible = await emailInput.isVisible({ timeout: 8000 }).catch(() => false);
-    if (!visible) test.skip(true, 'Email input not found');
+    await expect(emailInput).toBeVisible({ timeout: 8000 });
     const readOnly = await emailInput.getAttribute('readonly');
     const disabled = await emailInput.getAttribute('disabled');
     expect(readOnly !== null || disabled !== null).toBeTruthy();
@@ -336,29 +316,42 @@ test.describe('Token Usage Tab — UI & Layout', () => {
     const bar = page.locator(
       '[role="progressbar"], [class*="progress"], [class*="bar"], [class*="allocation"]'
     ).first();
-    const visible = await bar.isVisible({ timeout: 10000 }).catch(() => false);
-    if (!visible) test.skip(true, 'Allocation bar not found');
-    await expect(bar).toBeVisible();
+    await expect(bar).toBeVisible({ timeout: 10000 });
   });
 
   test('used and remaining token counts are displayed', async ({ page }) => {
     await goToTokenUsage(page);
-    // Look for numeric values with token/K/M suffixes
     const numbers = page.locator('[class*="token"], [class*="usage"]').filter({ hasText: /\d+(\.\d+)?(K|M|T|tokens?)?/i }).first();
-    const visible = await numbers.isVisible({ timeout: 8000 }).catch(() => false);
-    if (!visible) test.skip(true, 'Token count numbers not found');
-    await expect(numbers).toBeVisible();
+    await expect(numbers).toBeVisible({ timeout: 8000 });
   });
 
   test('usage percentage label is shown', async ({ page }) => {
     await goToTokenUsage(page);
-    const pct = page.locator('text=/%/').first();
-    const visible = await pct.isVisible({ timeout: 5000 }).catch(() => false);
-    if (!visible) {
-      // Try via regexp
-      const pct2 = page.locator('[class*="token"], [class*="usage"]').filter({ hasText: /%/ }).first();
-      const v2 = await pct2.isVisible({ timeout: 5000 }).catch(() => false);
-      if (!v2) test.skip(true, 'Percentage display not found');
+    const pct = page.locator('[class*="token"], [class*="usage"]').filter({ hasText: /%/ }).first();
+    await expect(pct).toBeVisible({ timeout: 8000 });
+  });
+
+  test('token allocation bar shows a percentage between 0 and 100', async ({ page }) => {
+    await goToTokenUsage(page);
+    const bar = page.locator('[role="progressbar"], [class*="progress"], [class*="bar"], [class*="allocation"]').first();
+    await expect(bar).toBeVisible({ timeout: 10000 });
+    // Try aria-valuenow first
+    const ariaNow = await bar.getAttribute('aria-valuenow').catch(() => null);
+    if (ariaNow !== null) {
+      const pct = parseFloat(ariaNow);
+      expect(pct).toBeGreaterThanOrEqual(0);
+      expect(pct).toBeLessThanOrEqual(100);
+    } else {
+      // Fall back to checking inline style width
+      const style = await bar.getAttribute('style').catch(() => null);
+      if (style && /width/.test(style)) {
+        const match = style.match(/width:\s*(\d+(\.\d+)?)%/);
+        if (match) {
+          const pct = parseFloat(match[1]);
+          expect(pct).toBeGreaterThanOrEqual(0);
+          expect(pct).toBeLessThanOrEqual(100);
+        }
+      }
     }
   });
 
@@ -372,40 +365,32 @@ test.describe('Token Usage Tab — Usage Logs Table', () => {
   test('usage log table or list is visible', async ({ page }) => {
     await goToTokenUsage(page);
     const table = page.locator('table, [class*="table"], [class*="log"], [class*="history"]').first();
-    const visible = await table.isVisible({ timeout: 10000 }).catch(() => false);
-    if (!visible) test.skip(true, 'Usage log table not found');
-    await expect(table).toBeVisible();
+    await expect(table).toBeVisible({ timeout: 10000 });
   });
 
   test('table has column headers', async ({ page }) => {
     await goToTokenUsage(page);
     const headers = page.locator('th, [class*="th"], [class*="header-cell"], [role="columnheader"]');
     const count = await headers.count();
-    if (count === 0) test.skip(true, 'No table headers found');
     expect(count).toBeGreaterThan(0);
   });
 
   test('feature column is present in logs', async ({ page }) => {
     await goToTokenUsage(page);
     const featureHeader = page.locator('th, [role="columnheader"]').filter({ hasText: /feature/i }).first();
-    const visible = await featureHeader.isVisible({ timeout: 8000 }).catch(() => false);
-    if (!visible) test.skip(true, 'Feature column not found');
-    await expect(featureHeader).toBeVisible();
+    await expect(featureHeader).toBeVisible({ timeout: 8000 });
   });
 
   test('model column is present in logs', async ({ page }) => {
     await goToTokenUsage(page);
     const modelHeader = page.locator('th, [role="columnheader"]').filter({ hasText: /model/i }).first();
-    const visible = await modelHeader.isVisible({ timeout: 8000 }).catch(() => false);
-    if (!visible) test.skip(true, 'Model column not found');
-    await expect(modelHeader).toBeVisible();
+    await expect(modelHeader).toBeVisible({ timeout: 8000 });
   });
 
   test('token count columns are present (input/output/sprout)', async ({ page }) => {
     await goToTokenUsage(page);
     const tokenCols = page.locator('th, [role="columnheader"]').filter({ hasText: /token|input|output|sprout/i });
     const count = await tokenCols.count();
-    if (count === 0) test.skip(true, 'Token columns not found');
     expect(count).toBeGreaterThan(0);
   });
 
@@ -427,12 +412,10 @@ test.describe('Token Usage Tab — Usage Logs Table', () => {
     if (count === 0) test.skip(true, 'No rows found');
 
     const projectIdHeader = page.locator('th, [role="columnheader"]').filter({ hasText: /project/i }).first();
-    const visible = await projectIdHeader.isVisible({ timeout: 5000 }).catch(() => false);
-    if (!visible) test.skip(true, 'Project ID column not found');
-    await expect(projectIdHeader).toBeVisible();
+    await expect(projectIdHeader).toBeVisible({ timeout: 8000 });
   });
 
-  test('"No usage data" or rows shown when logs exist/empty', async ({ page }) => {
+  test('"No usage data" shown or rows exist when logs are empty', async ({ page }) => {
     await goToTokenUsage(page);
     const noData = page.locator('text=/no (usage|data|logs|records)/i').first();
     const hasRows = await page.locator('tbody tr').count();
@@ -455,9 +438,7 @@ test.describe('Token Usage Tab — Pagination', () => {
     const pagination = page.locator(
       '[class*="pagination"], [aria-label*="pagination"], nav[aria-label*="page"], [class*="pager"]'
     ).first();
-    const visible = await pagination.isVisible({ timeout: 8000 }).catch(() => false);
-    if (!visible) test.skip(true, 'Pagination controls not found');
-    await expect(pagination).toBeVisible();
+    await expect(pagination).toBeVisible({ timeout: 8000 });
   });
 
   test('page displays max 15 rows per page', async ({ page }) => {
@@ -481,9 +462,9 @@ test.describe('Token Usage Tab — Pagination', () => {
     const disabled = await nextBtn.isDisabled();
     if (!disabled) {
       await nextBtn.click();
-      await page.waitForTimeout(800);
-      const newRows = await page.locator('tbody tr').count();
-      expect(newRows).toBeGreaterThan(0);
+      const newRows = page.locator('tbody tr');
+      await expect(newRows.first()).toBeVisible({ timeout: 5000 });
+      expect(await newRows.count()).toBeGreaterThan(0);
     }
   });
 
@@ -504,9 +485,7 @@ test.describe('Token Usage Tab — Pagination', () => {
 
     const pageInfo = page.locator('[class*="page-info"], [class*="pagination"]')
       .filter({ hasText: /page|of|\d+/i }).first();
-    const visible = await pageInfo.isVisible({ timeout: 5000 }).catch(() => false);
-    if (!visible) test.skip(true, 'Page info not found');
-    await expect(pageInfo).toBeVisible();
+    await expect(pageInfo).toBeVisible({ timeout: 8000 });
   });
 
 });
@@ -586,8 +565,7 @@ test.describe('Settings — Security', () => {
   test('password input is masked by default (type=password)', async ({ page }) => {
     await goToSettings(page);
     const pwInput = page.locator('input[type="password"]').first();
-    const visible = await pwInput.isVisible({ timeout: 5000 }).catch(() => false);
-    if (!visible) test.skip(true, 'Password input not found');
+    await expect(pwInput).toBeVisible({ timeout: 8000 });
     const type = await pwInput.getAttribute('type');
     expect(type).toBe('password');
   });
@@ -643,9 +621,7 @@ test.describe('Settings — Responsiveness', () => {
     await page.setViewportSize({ width: 768, height: 1024 });
     await goToSettings(page);
     const form = page.locator('form, [class*="settings-form"], [class*="profile-form"]').first();
-    const visible = await form.isVisible({ timeout: 8000 }).catch(() => false);
-    if (!visible) test.skip(true, 'Settings form not found on tablet');
-    await expect(form).toBeVisible();
+    await expect(form).toBeVisible({ timeout: 8000 });
   });
 
   test('settings form is visible on desktop (1440px)', async ({ page }) => {

@@ -2,6 +2,7 @@
 // Sprout OS — Dashboard Security & Performance Spec
 // Covers : Auth gating · Session management · API protection · XSS/CSRF
 //          Console errors · Performance baselines · CSP headers
+//          Paddle billing · Static asset health · Data isolation
 // =============================================================================
 
 const { test, expect } = require('@playwright/test');
@@ -135,8 +136,7 @@ test.describe('XSS Prevention', () => {
   test('XSS payload in prompt editor does not execute script', async ({ page }) => {
     const xssPayload = '<script>window.__xss_test__=1;</script>';
     const editor = page.locator('#dashboard-prompt-card [contenteditable="true"]').first();
-    const visible = await editor.isVisible({ timeout: 8000 }).catch(() => false);
-    if (!visible) test.skip(true, 'Prompt editor not found');
+    await expect(editor).toBeVisible({ timeout: 8000 });
 
     await editor.click();
     await editor.fill(xssPayload);
@@ -149,8 +149,7 @@ test.describe('XSS Prevention', () => {
   test('XSS payload in search input does not execute script', async ({ page }) => {
     const xssPayload = '"><img src=x onerror=window.__xss_search__=1>';
     const search = page.locator('aside input[placeholder="Search"]').first();
-    const visible = await search.isVisible({ timeout: 8000 }).catch(() => false);
-    if (!visible) test.skip(true, 'Search input not found');
+    await expect(search).toBeVisible({ timeout: 8000 });
 
     await search.fill(xssPayload);
     await page.waitForTimeout(500);
@@ -294,6 +293,115 @@ test.describe('Console Errors — Dashboard', () => {
     await page.waitForLoadState('networkidle');
     await page.waitForTimeout(2000);
     expect(serverErrors.length).toBe(0);
+  });
+
+  test('Paddle billing SDK initialized without error', async ({ page }) => {
+    // Explicitly fail if [PADDLE BILLING] errors appear in console
+    const paddleErrors = [];
+    page.on('console', msg => {
+      if (msg.type() === 'error' && msg.text().toUpperCase().includes('PADDLE')) {
+        paddleErrors.push(msg.text());
+      }
+    });
+    page.on('pageerror', err => {
+      if (err.message.toUpperCase().includes('PADDLE')) {
+        paddleErrors.push(err.message);
+      }
+    });
+
+    await page.reload();
+    await page.waitForLoadState('networkidle');
+    await page.waitForTimeout(2000);
+
+    expect(
+      paddleErrors,
+      `Paddle billing errors detected:\n${paddleErrors.join('\n')}`
+    ).toHaveLength(0);
+  });
+
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// STATIC ASSET HEALTH
+// ─────────────────────────────────────────────────────────────────────────────
+test.describe('Static Asset Health', () => {
+
+  test.beforeEach(async ({ page }) => {
+    if (!TEST_EMAIL || !TEST_PASSWORD) test.skip(true, 'Credentials not set');
+    await loginAndDismissTour(page);
+  });
+
+  test('no 404 errors for static assets (CSS, JS, fonts)', async ({ page }) => {
+    const failedAssets = [];
+
+    page.on('response', res => {
+      const url = res.url();
+      const status = res.status();
+      // Only check CSS, JS, and font files
+      if (/\.(css|js|woff|woff2|ttf|otf)(\?.*)?$/i.test(url) && status === 404) {
+        failedAssets.push(`404 ${url}`);
+      }
+    });
+
+    await page.reload();
+    await page.waitForLoadState('networkidle');
+    await page.waitForTimeout(2000);
+
+    expect(
+      failedAssets,
+      `404 static assets found:\n${failedAssets.join('\n')}`
+    ).toHaveLength(0);
+  });
+
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// DATA ISOLATION
+// ─────────────────────────────────────────────────────────────────────────────
+test.describe('Data Isolation — API Responses', () => {
+
+  test.beforeEach(async ({ page }) => {
+    if (!TEST_EMAIL || !TEST_PASSWORD) test.skip(true, 'Credentials not set');
+    await loginAndDismissTour(page);
+  });
+
+  test('dashboard API responses do not leak user data from other accounts', async ({ page }) => {
+    const apiResponses = [];
+
+    // Intercept all API calls and collect their bodies
+    page.on('response', async res => {
+      const url = res.url();
+      if (url.includes('/api/') && res.headers()['content-type']?.includes('application/json')) {
+        try {
+          const body = await res.text().catch(() => '');
+          apiResponses.push({ url, body });
+        } catch {
+          // ignore
+        }
+      }
+    });
+
+    await page.reload();
+    await page.waitForLoadState('networkidle');
+    await page.waitForTimeout(2000);
+
+    // Extract the local part and domain of the logged-in user's email
+    const [emailLocalPart, emailDomain] = TEST_EMAIL.split('@');
+
+    // Every response that contains an email address should only reference the logged-in user's email
+    for (const { url, body } of apiResponses) {
+      // Find any email-like strings in the response
+      const emailMatches = body.match(/[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}/g) || [];
+      for (const email of emailMatches) {
+        // Allow the logged-in user's own email or system/noreply emails
+        const isOwnEmail = email.toLowerCase() === TEST_EMAIL.toLowerCase();
+        const isSystemEmail = /noreply|no-reply|support|admin|system/i.test(email);
+        expect(
+          isOwnEmail || isSystemEmail,
+          `API response from ${url} contains unexpected email: ${email}`
+        ).toBeTruthy();
+      }
+    }
   });
 
 });
@@ -502,12 +610,6 @@ test.describe('Network & API Health', () => {
 
   test('workspace API responds within 3 seconds', async ({ page }) => {
     const start = Date.now();
-    let workspaceResolved = false;
-    page.on('response', res => {
-      if (res.url().includes('/api/workspace') || res.url().includes('/api/org')) {
-        workspaceResolved = true;
-      }
-    });
     await page.goto('/?tab=workspace');
     await page.waitForLoadState('networkidle');
     const elapsed = Date.now() - start;

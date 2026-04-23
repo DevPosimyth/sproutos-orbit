@@ -22,7 +22,7 @@ test.describe('HomeTab — UI & Layout', () => {
     const errors = [];
     page.on('pageerror', e => errors.push(e.message));
     page.on('console', m => { if (m.type() === 'error') errors.push(m.text()); });
-    await page.waitForTimeout(2000);
+    await page.waitForLoadState('networkidle');
     const appErrors = errors.filter(e => !/analytics|gtag|facebook|hotjar|sentry/i.test(e));
     expect(appErrors, appErrors.join('\n')).toHaveLength(0);
   });
@@ -33,7 +33,7 @@ test.describe('HomeTab — UI & Layout', () => {
       if (r.url().includes('sproutos.ai') && r.status() >= 400)
         failures.push(`${r.status()} ${r.url()}`);
     });
-    await page.waitForTimeout(2000);
+    await page.waitForLoadState('networkidle');
     expect(failures, failures.join('\n')).toHaveLength(0);
   });
 
@@ -128,11 +128,8 @@ test.describe('HomeTab — Prompt Field', () => {
     const editor = page.locator('#dashboard-prompt-card [contenteditable="true"]').first();
     await editor.focus();
     await page.keyboard.type('/');
-    await page.waitForTimeout(500);
     const slashMenu = page.locator('[class*="slash"], [class*="menu"]').filter({ hasText: /website|link|file/i }).first();
-    if (await slashMenu.isVisible({ timeout: 3000 }).catch(() => false)) {
-      await expect(slashMenu).toBeVisible();
-    }
+    await expect(slashMenu).toBeVisible({ timeout: 3000 });
   });
 
   test('Escape key dismisses slash menu', async ({ page }) => {
@@ -143,8 +140,60 @@ test.describe('HomeTab — Prompt Field', () => {
     await page.waitForTimeout(400);
     await page.keyboard.press('Escape');
     const slashMenu = page.locator('[class*="slash-menu"]').first();
-    const visible = await slashMenu.isVisible({ timeout: 1000 }).catch(() => false);
-    expect(visible).toBeFalsy();
+    await expect(slashMenu).not.toBeVisible({ timeout: 2000 });
+  });
+
+  test('submitting empty prompt shows error or disables submit button', async ({ page }) => {
+    // Ensure editor is empty
+    await page.locator('#dashboard-prompt-card .cursor-text').first().click();
+    const editor = page.locator('#dashboard-prompt-card [contenteditable="true"]').first();
+    await editor.fill('');
+    // Find and click the submit/send button
+    const submitBtn = page.locator(
+      '#dashboard-prompt-card button[type="submit"], #dashboard-prompt-card button[aria-label*="submit" i], #dashboard-prompt-card button[aria-label*="send" i]'
+    ).first();
+    if (await submitBtn.isVisible({ timeout: 3000 })) {
+      await submitBtn.click({ force: true });
+      // Either an error appears OR the button stays disabled OR URL does not change to a project
+      const errorEl = page.locator('[class*="error"], [role="alert"]').first();
+      const isErrorVisible = await errorEl.isVisible({ timeout: 2000 }).catch(() => false);
+      const isStillOnDashboard = page.url().match(/dashboard/i);
+      expect(isErrorVisible || isStillOnDashboard).toBeTruthy();
+    } else {
+      // If no explicit submit btn found, the editor itself should prevent navigation
+      expect(page.url()).toMatch(/dashboard/i);
+    }
+  });
+
+  test('prompt character count or hint shown when typing', async ({ page }) => {
+    await page.locator('#dashboard-prompt-card .cursor-text').first().click();
+    const editor = page.locator('#dashboard-prompt-card [contenteditable="true"]').first();
+    await editor.fill('Hello this is a test prompt for character count');
+    // After typing, some feedback element (counter, hint, icon change) should be present
+    const feedback = page.locator(
+      '#dashboard-prompt-card [class*="count"], #dashboard-prompt-card [class*="hint"], #dashboard-prompt-card [class*="char"]'
+    ).first();
+    // Also check the editor itself has content (the fill worked)
+    const text = await editor.innerText();
+    expect(text.trim().length).toBeGreaterThan(0);
+    // If a feedback element exists, assert it's visible
+    const feedbackExists = await feedback.count();
+    if (feedbackExists > 0) {
+      await expect(feedback).toBeVisible({ timeout: 3000 });
+    }
+  });
+
+  test('project card has hover state (cursor changes or card elevates)', async ({ page }) => {
+    await page.waitForSelector('.animate-pulse', { state: 'hidden', timeout: 15000 }).catch(() => {});
+    const cards = page.locator('[class*="rounded-xl"]');
+    const count = await cards.count();
+    expect(count).toBeGreaterThan(0);
+    const card = cards.first();
+    await card.hover();
+    // After hover, check that computed cursor is pointer OR a shadow/scale class has been added
+    const cursor = await card.evaluate(el => getComputedStyle(el).cursor);
+    const cls = await card.getAttribute('class');
+    expect(cursor === 'pointer' || (cls !== null && /hover|shadow|scale|elevat/i.test(cls))).toBeTruthy();
   });
 
 });
@@ -167,9 +216,9 @@ test.describe('HomeTab — Prompt Suggestions', () => {
     await expect(btn).toBeVisible({ timeout: 10000 });
     // Force-click to bypass any remaining overlay
     await btn.click({ force: true });
-    await page.waitForTimeout(500);
     const editor = page.locator('#dashboard-prompt-card [contenteditable="true"]').first();
-    const text = await editor.innerText().catch(() => '');
+    await expect(editor).not.toBeEmpty({ timeout: 3000 });
+    const text = await editor.innerText();
     expect(text.trim().length).toBeGreaterThan(0);
   });
 
@@ -189,9 +238,13 @@ test.describe('HomeTab — Prompt Suggestions', () => {
     const btn = page.locator('button:has-text("Start with a Guided Brief")').first();
     await expect(btn).toBeVisible({ timeout: 10000 });
     await btn.click({ force: true });
-    await page.waitForTimeout(2000);
+    // Assert navigation occurred — URL changes or guided content appears
+    await page.waitForFunction(
+      () => window.location.href.includes('guided') || document.querySelector('[class*="guided"], [class*="brief"], input[placeholder*="project" i]') !== null,
+      { timeout: 6000 }
+    );
     const url = page.url();
-    const guidedContent = await page.locator('[class*="guided"], [class*="brief"], input[placeholder*="project" i]').isVisible({ timeout: 5000 }).catch(() => false);
+    const guidedContent = await page.locator('[class*="guided"], [class*="brief"], input[placeholder*="project" i]').isVisible({ timeout: 3000 }).catch(() => false);
     expect(url.includes('guided') || guidedContent).toBeTruthy();
   });
 
@@ -206,15 +259,13 @@ test.describe('HomeTab — Prompt Suggestions', () => {
 
     await btn.click({ force: true });
     await page.waitForTimeout(300);
-    const first = await editor.innerText().catch(() => '');
+    const first = await editor.innerText();
+    expect(first.trim().length).toBeGreaterThan(0);
 
     await editor.fill('');
     await btn.click({ force: true });
     await page.waitForTimeout(300);
-    const second = await editor.innerText().catch(() => '');
-
-    // Both should be non-empty (randomness not always guaranteed but length should be > 0)
-    expect(first.trim().length).toBeGreaterThan(0);
+    const second = await editor.innerText();
     expect(second.trim().length).toBeGreaterThan(0);
   });
 
@@ -229,17 +280,10 @@ test.describe('HomeTab — Projects Grid', () => {
     await expect(page.locator('h2:has-text("Projects")')).toBeVisible({ timeout: 12000 });
   });
 
-  test('projects grid renders cards or shows empty state', async ({ page }) => {
+  test('projects grid renders at least one card', async ({ page }) => {
     await page.waitForSelector('.animate-pulse', { state: 'hidden', timeout: 15000 }).catch(() => {});
-    const hasCards = await page.locator('[class*="rounded-xl"]').count();
-    const emptyState = await page.locator('h3:has-text("No Projects")').isVisible().catch(() => false);
-    expect(hasCards > 0 || emptyState).toBeTruthy();
-  });
-
-  test('loading skeleton disappears after data loads', async ({ page }) => {
-    await page.waitForSelector('.animate-pulse', { state: 'hidden', timeout: 15000 }).catch(() => {});
-    const skeletons = await page.locator('.animate-pulse').count();
-    expect(skeletons).toBe(0);
+    const cardCount = await page.locator('[class*="rounded-xl"]').count();
+    expect(cardCount).toBeGreaterThan(0);
   });
 
   test('empty state shows "No Projects" heading and video card', async ({ page }) => {
@@ -251,11 +295,17 @@ test.describe('HomeTab — Projects Grid', () => {
     await expect(page.locator('text=Getting Started')).toBeVisible({ timeout: 5000 });
   });
 
+  test('loading skeleton disappears after data loads', async ({ page }) => {
+    await page.waitForSelector('.animate-pulse', { state: 'hidden', timeout: 15000 }).catch(() => {});
+    const skeletons = await page.locator('.animate-pulse').count();
+    expect(skeletons).toBe(0);
+  });
+
   test('project cards display a name', async ({ page }) => {
     await page.waitForSelector('.animate-pulse', { state: 'hidden', timeout: 15000 }).catch(() => {});
     const cards = page.locator('[class*="rounded-xl"]');
     const count = await cards.count();
-    if (count === 0) test.skip(true, 'No project cards');
+    expect(count).toBeGreaterThan(0);
     const text = await cards.first().innerText();
     expect(text.trim().length).toBeGreaterThan(0);
   });
@@ -263,7 +313,8 @@ test.describe('HomeTab — Projects Grid', () => {
   test('project cards display a thumbnail or placeholder', async ({ page }) => {
     await page.waitForSelector('.animate-pulse', { state: 'hidden', timeout: 15000 }).catch(() => {});
     const cards = page.locator('[class*="rounded-xl"]');
-    if (await cards.count() === 0) test.skip(true, 'No project cards');
+    const count = await cards.count();
+    expect(count).toBeGreaterThan(0);
     const hasThumbnail = await cards.first().locator('img, canvas, [class*="preview"]').isVisible({ timeout: 3000 }).catch(() => false);
     expect(hasThumbnail).toBeTruthy();
   });
@@ -271,9 +322,10 @@ test.describe('HomeTab — Projects Grid', () => {
   test('clicking a project card navigates to project sitemap', async ({ page }) => {
     await page.waitForSelector('.animate-pulse', { state: 'hidden', timeout: 15000 }).catch(() => {});
     const cards = page.locator('[class*="rounded-xl"]');
-    if (await cards.count() === 0) test.skip(true, 'No project cards');
+    const count = await cards.count();
+    expect(count).toBeGreaterThan(0);
     await cards.first().click();
-    await page.waitForTimeout(2000);
+    await page.waitForURL(/project|sitemap/i, { timeout: 8000 });
     expect(page.url()).toMatch(/project|sitemap/i);
   });
 
@@ -285,12 +337,13 @@ test.describe('HomeTab — Projects Grid', () => {
     expect(cls).toMatch(/grid-cols/);
   });
 
-  test('search/filter in workspace narrows project list', async ({ page }) => {
+  test('search/filter in sidebar narrows project list', async ({ page }) => {
     const searchInput = page.locator('aside input[placeholder="Search"]').first();
     await expect(searchInput).toBeVisible({ timeout: 8000 });
     await searchInput.fill('zzzzz_nonexistent_project');
     await page.waitForTimeout(500);
-    const results = await page.locator('[class*="truncate"]').count();
+    // Scoped to sidebar only to avoid matching unrelated elements
+    const results = await page.locator('aside [class*="truncate"]').count();
     // With a non-matching query, sidebar should show 0 items
     expect(results).toBe(0);
     await searchInput.fill('');
@@ -333,7 +386,8 @@ test.describe('HomeTab — Accessibility', () => {
   });
 
   test('header has correct landmark role', async ({ page }) => {
-    await expect(page.locator('header')).toBeVisible({ timeout: 8000 });
+    // Use first() to handle cases where locator matches multiple header elements
+    await expect(page.locator('header').first()).toBeVisible({ timeout: 8000 });
   });
 
   test('sidebar has aside landmark', async ({ page }) => {

@@ -11,7 +11,9 @@ const { TEST_EMAIL, TEST_PASSWORD, loginAndDismissTour } = require('./_auth');
 
 async function goToTab(page, tab) {
   await page.goto(`/dashboard?tab=${tab}`);
-  await page.waitForLoadState('networkidle');
+  // Use domcontentloaded to avoid networkidle timeouts, then wait for main content
+  await page.waitForLoadState('domcontentloaded');
+  await expect(page.locator('main, .bg-white').first()).toBeVisible({ timeout: 10000 });
 }
 
 test.beforeEach(async ({ page }) => {
@@ -39,12 +41,11 @@ test.describe('WorkspaceTab — UI', () => {
     expect(appErrors, appErrors.join('\n')).toHaveLength(0);
   });
 
-  test('workspace project cards or empty state renders', async ({ page }) => {
+  test('workspace project cards renders at least one card', async ({ page }) => {
     await goToTab(page, 'workspace');
     await page.waitForSelector('.animate-pulse', { state: 'hidden', timeout: 15000 }).catch(() => {});
-    const hasCards = await page.locator('[class*="rounded"]').count();
-    const isEmpty = await page.locator('text=No projects, text=empty').isVisible({ timeout: 3000 }).catch(() => false);
-    expect(hasCards > 0 || isEmpty).toBeTruthy();
+    const cardCount = await page.locator('[class*="rounded"]').count();
+    expect(cardCount).toBeGreaterThan(0);
   });
 
   test('workspace project cards show project names', async ({ page }) => {
@@ -52,7 +53,7 @@ test.describe('WorkspaceTab — UI', () => {
     await page.waitForSelector('.animate-pulse', { state: 'hidden', timeout: 15000 }).catch(() => {});
     const cards = page.locator('[class*="rounded-xl"], [class*="project-card"]');
     const count = await cards.count();
-    if (count === 0) test.skip(true, 'No workspace projects');
+    expect(count).toBeGreaterThan(0);
     const name = await cards.first().locator('p, span, h3').first().innerText().catch(() => '');
     expect(name.trim().length).toBeGreaterThan(0);
   });
@@ -61,41 +62,36 @@ test.describe('WorkspaceTab — UI', () => {
     await goToTab(page, 'workspace');
     await page.waitForSelector('.animate-pulse', { state: 'hidden', timeout: 15000 }).catch(() => {});
     const timeLabel = page.locator('text=/ago|now/i').first();
-    if (await timeLabel.isVisible({ timeout: 5000 }).catch(() => false)) {
-      await expect(timeLabel).toBeVisible();
-    }
+    await expect(timeLabel).toBeVisible({ timeout: 5000 });
   });
 
   test('workspace project card click navigates to project', async ({ page }) => {
     await goToTab(page, 'workspace');
     await page.waitForSelector('.animate-pulse', { state: 'hidden', timeout: 15000 }).catch(() => {});
     const cards = page.locator('[class*="rounded-xl"]');
-    if (await cards.count() === 0) test.skip(true, 'No workspace projects');
+    const count = await cards.count();
+    expect(count).toBeGreaterThan(0);
     const startUrl = page.url();
     await cards.first().click();
-    await page.waitForTimeout(2000);
+    await page.waitForURL(/project|sitemap/i, { timeout: 8000 });
     expect(page.url()).not.toBe(startUrl);
+    expect(page.url()).toMatch(/project|sitemap/i);
   });
 
   test('grid/list view toggle is present', async ({ page }) => {
     await goToTab(page, 'workspace');
-    const toggle = page.locator('[class*="grid"], [class*="list"]').filter({ has: page.locator('button') }).first();
-    const layoutGrid = page.locator('button[class*="grid"], button[aria-label*="grid" i], svg[class*="grid"]').first();
-    const isVisible = await layoutGrid.isVisible({ timeout: 5000 }).catch(() => false);
-    if (isVisible) {
-      await expect(layoutGrid).toBeVisible();
-    }
+    const gridBtn = page.locator('button[class*="grid"], button[aria-label*="grid" i], svg[class*="grid"]').first();
+    await expect(gridBtn).toBeVisible({ timeout: 8000 });
   });
 
   test('list view toggle switches layout', async ({ page }) => {
     await goToTab(page, 'workspace');
     const listBtn = page.locator('button[aria-label*="list" i], button:has(svg[class*="list"])').first();
-    if (!await listBtn.isVisible({ timeout: 5000 }).catch(() => false)) test.skip(true, 'List view button not found');
+    if (!await listBtn.isVisible({ timeout: 5000 })) test.skip(true, 'List view button not found');
     await listBtn.click();
-    await page.waitForTimeout(500);
     // Layout should change — look for a list-style element
-    const listStyle = await page.locator('[class*="flex-col"], [class*="list-view"]').isVisible({ timeout: 3000 }).catch(() => false);
-    expect(listStyle).toBeTruthy();
+    const listStyle = page.locator('[class*="flex-col"], [class*="list-view"]').first();
+    await expect(listStyle).toBeVisible({ timeout: 5000 });
   });
 
 });
@@ -107,42 +103,55 @@ test.describe('WorkspaceTab — Create / Manage Mode Toggle', () => {
 
   test('Create/Manage mode toggle is visible', async ({ page }) => {
     await goToTab(page, 'workspace');
-    const toggle = page.locator('[role="tablist"]').filter({ hasText: /create|manage/i }).first();
+    // Try role="tablist" first, then fallback to button text selectors
+    const toggle = page.locator(
+      '[role="tablist"]:has-text("Create"), [class*="WorkspaceModeToggle"], button:has-text("Create")'
+    ).first();
     await expect(toggle).toBeVisible({ timeout: 10000 });
   });
 
   test('"Create" tab is active by default', async ({ page }) => {
     await goToTab(page, 'workspace');
-    const createTab = page.locator('[role="tab"]:has-text("Create")').first();
+    const createTab = page.locator(
+      '[role="tab"]:has-text("Create"), button:has-text("Create")[class*="active"], button:has-text("Create")[aria-selected="true"]'
+    ).first();
     await expect(createTab).toBeVisible({ timeout: 8000 });
+    // Check active state via data-state or aria-selected
     const state = await createTab.getAttribute('data-state');
-    expect(state).toBe('active');
+    const ariaSelected = await createTab.getAttribute('aria-selected');
+    expect(state === 'active' || ariaSelected === 'true').toBeTruthy();
   });
 
   test('clicking "Manage" tab switches workspace mode', async ({ page }) => {
     await goToTab(page, 'workspace');
-    const manageTab = page.locator('[role="tab"]:has-text("Manage")').first();
+    const manageTab = page.locator('[role="tab"]:has-text("Manage"), button:has-text("Manage")').first();
     await expect(manageTab).toBeVisible({ timeout: 8000 });
     await manageTab.click();
-    await page.waitForTimeout(1000);
+    // Assert the manage tab is now active
     const state = await manageTab.getAttribute('data-state');
-    expect(state).toBe('active');
+    const ariaSelected = await manageTab.getAttribute('aria-selected');
+    const cls = await manageTab.getAttribute('class');
+    expect(state === 'active' || ariaSelected === 'true' || (cls !== null && /active|selected/i.test(cls))).toBeTruthy();
   });
 
   test('switching back to "Create" restores active state', async ({ page }) => {
     await goToTab(page, 'workspace');
-    const manageTab = page.locator('[role="tab"]:has-text("Manage")').first();
-    const createTab = page.locator('[role="tab"]:has-text("Create")').first();
-    await manageTab.click({ timeout: 8000 }).catch(() => {});
+    const manageTab = page.locator('[role="tab"]:has-text("Manage"), button:has-text("Manage")').first();
+    const createTab = page.locator('[role="tab"]:has-text("Create"), button:has-text("Create")').first();
+    await expect(manageTab).toBeVisible({ timeout: 8000 });
+    await manageTab.click();
     await page.waitForTimeout(500);
     await createTab.click();
     await page.waitForTimeout(500);
-    expect(await createTab.getAttribute('data-state')).toBe('active');
+    const state = await createTab.getAttribute('data-state');
+    const ariaSelected = await createTab.getAttribute('aria-selected');
+    const cls = await createTab.getAttribute('class');
+    expect(state === 'active' || ariaSelected === 'true' || (cls !== null && /active|selected/i.test(cls))).toBeTruthy();
   });
 
   test('workspace mode toggle has sparkles icon on Create tab', async ({ page }) => {
     await goToTab(page, 'workspace');
-    const createTab = page.locator('[role="tab"]:has-text("Create")').first();
+    const createTab = page.locator('[role="tab"]:has-text("Create"), button:has-text("Create")').first();
     await expect(createTab).toBeVisible({ timeout: 8000 });
     const svgInTab = createTab.locator('svg').first();
     await expect(svgInTab).toBeVisible({ timeout: 3000 });
@@ -161,13 +170,11 @@ test.describe('TeamManagement — Members', () => {
     await expect(main).toBeVisible({ timeout: 10000 });
   });
 
-  test('member list or empty state renders', async ({ page }) => {
+  test('member list renders', async ({ page }) => {
     await goToTab(page, 'team-management');
     await page.waitForSelector('.animate-pulse', { state: 'hidden', timeout: 12000 }).catch(() => {});
     const members = page.locator('[class*="member"], [class*="user-row"], [class*="team"]').first();
-    const isEmpty = await page.locator('text=No members, text=no team').isVisible({ timeout: 3000 }).catch(() => false);
-    const hasContent = await members.isVisible({ timeout: 5000 }).catch(() => false);
-    expect(hasContent || isEmpty).toBeTruthy();
+    await expect(members).toBeVisible({ timeout: 8000 });
   });
 
   test('current user appears in member list', async ({ page }) => {
@@ -175,18 +182,14 @@ test.describe('TeamManagement — Members', () => {
     await page.waitForSelector('.animate-pulse', { state: 'hidden', timeout: 12000 }).catch(() => {});
     // The logged-in user's email should appear somewhere in the team list
     const userRow = page.locator(`text=${TEST_EMAIL}`).first();
-    if (await userRow.isVisible({ timeout: 5000 }).catch(() => false)) {
-      await expect(userRow).toBeVisible();
-    }
+    await expect(userRow).toBeVisible({ timeout: 8000 });
   });
 
   test('member rows show role labels (Admin/Designer/Developer/Client/Viewer)', async ({ page }) => {
     await goToTab(page, 'team-management');
     await page.waitForSelector('.animate-pulse', { state: 'hidden', timeout: 12000 }).catch(() => {});
     const roleLabel = page.locator('text=/Admin|Designer|Developer|Client|Viewer/i').first();
-    if (await roleLabel.isVisible({ timeout: 5000 }).catch(() => false)) {
-      await expect(roleLabel).toBeVisible();
-    }
+    await expect(roleLabel).toBeVisible({ timeout: 8000 });
   });
 
   test('search members input is visible', async ({ page }) => {
@@ -210,10 +213,21 @@ test.describe('TeamManagement — Members', () => {
   test('grid/list view toggle available in team management', async ({ page }) => {
     await goToTab(page, 'team-management');
     const gridBtn = page.locator('button[aria-label*="grid" i], svg[data-icon*="grid"]').first();
-    const listBtn = page.locator('button[aria-label*="list" i], svg[data-icon*="list"]').first();
-    const hasToggle = await gridBtn.isVisible({ timeout: 3000 }).catch(() => false) ||
-                      await listBtn.isVisible({ timeout: 3000 }).catch(() => false);
-    if (hasToggle) expect(hasToggle).toBeTruthy();
+    await expect(gridBtn).toBeVisible({ timeout: 8000 });
+  });
+
+  test('searching members with matching name shows results', async ({ page }) => {
+    await goToTab(page, 'team-management');
+    await page.waitForSelector('.animate-pulse', { state: 'hidden', timeout: 12000 }).catch(() => {});
+    const search = page.locator('input[placeholder*="Search" i]').first();
+    await expect(search).toBeVisible({ timeout: 8000 });
+    // Search with the logged-in user's email — their row must appear
+    const emailPrefix = TEST_EMAIL.split('@')[0];
+    await search.fill(emailPrefix);
+    await page.waitForTimeout(400);
+    const userRow = page.locator(`text=${TEST_EMAIL}`).first();
+    await expect(userRow).toBeVisible({ timeout: 5000 });
+    await search.fill('');
   });
 
 });
@@ -227,7 +241,8 @@ test.describe('TeamManagement — Invite Modal', () => {
     await goToTab(page, 'team-management');
     const inviteBtn = page.locator('button:has-text("Invite"), button[aria-label*="invite" i]').first();
     await expect(inviteBtn).toBeVisible({ timeout: 10000 });
-    await inviteBtn.click();
+    // Use force: true in case overlay may interfere
+    await inviteBtn.click({ force: true });
     await page.waitForTimeout(500);
   }
 
@@ -258,58 +273,66 @@ test.describe('TeamManagement — Invite Modal', () => {
   test('role selector in invite modal shows 5 roles', async ({ page }) => {
     await openInviteModal(page);
     const roleBtn = page.locator('[role="dialog"] [class*="role"], [role="dialog"] button:has-text("Admin"), [role="dialog"] button:has-text("Designer")').first();
-    if (await roleBtn.isVisible({ timeout: 3000 }).catch(() => false)) {
-      await roleBtn.click();
-      await page.waitForTimeout(300);
-      // 5 role options: Admin, Designer, Developer, Client, Viewer
-      for (const role of ['Admin', 'Designer', 'Developer', 'Client', 'Viewer']) {
-        const opt = page.locator(`text=${role}`).first();
-        await expect(opt).toBeVisible({ timeout: 3000 });
-      }
+    await expect(roleBtn).toBeVisible({ timeout: 5000 });
+    await roleBtn.click({ force: true });
+    await page.waitForTimeout(300);
+    // 5 role options: Admin, Designer, Developer, Client, Viewer
+    for (const role of ['Admin', 'Designer', 'Developer', 'Client', 'Viewer']) {
+      const opt = page.locator(`text=${role}`).first();
+      await expect(opt).toBeVisible({ timeout: 3000 });
     }
   });
 
   test('submitting empty email shows validation error', async ({ page }) => {
     await openInviteModal(page);
     const sendBtn = page.locator('[role="dialog"] button:has-text("Send"), [role="dialog"] button[type="submit"]').first();
-    if (await sendBtn.isVisible({ timeout: 3000 }).catch(() => false)) {
-      await sendBtn.click();
-      await page.waitForTimeout(500);
-      const emailInput = page.locator('[role="dialog"] input[type="email"]').first();
-      const isInvalid = await emailInput.evaluate(el => !el.validity.valid).catch(() => false);
-      const errMsg = await page.locator('[role="dialog"] [class*="error"], [role="dialog"] [role="alert"]').isVisible({ timeout: 2000 }).catch(() => false);
-      expect(isInvalid || errMsg).toBeTruthy();
-    }
+    await expect(sendBtn).toBeVisible({ timeout: 5000 });
+    await sendBtn.click({ force: true });
+    await page.waitForTimeout(500);
+    const emailInput = page.locator('[role="dialog"] input[type="email"]').first();
+    const isInvalid = await emailInput.evaluate(el => !el.validity.valid).catch(() => false);
+    const errMsg = await page.locator('[role="dialog"] [class*="error"], [role="dialog"] [role="alert"]').isVisible({ timeout: 2000 }).catch(() => false);
+    expect(isInvalid || errMsg).toBeTruthy();
   });
 
   test('"Share link" tab shows copy link button', async ({ page }) => {
     await openInviteModal(page);
     const linkTab = page.locator('button:has-text("Share link"), button:has-text("Copy link"), button[class*="link"]').first();
-    if (await linkTab.isVisible({ timeout: 3000 }).catch(() => false)) {
-      await linkTab.click();
-      await page.waitForTimeout(300);
-      const copyBtn = page.locator('button:has-text("Copy"), button[aria-label*="copy" i]').first();
-      await expect(copyBtn).toBeVisible({ timeout: 3000 });
-    }
+    await expect(linkTab).toBeVisible({ timeout: 5000 });
+    await linkTab.click({ force: true });
+    const copyBtn = page.locator('button:has-text("Copy"), button[aria-label*="copy" i]').first();
+    await expect(copyBtn).toBeVisible({ timeout: 3000 });
   });
 
   test('invite modal closes with X button', async ({ page }) => {
     await openInviteModal(page);
     const closeBtn = page.locator('[role="dialog"] button:has-text("✕"), [role="dialog"] button[aria-label*="close" i], [role="dialog"] .lucide-x').first();
-    if (await closeBtn.isVisible({ timeout: 3000 }).catch(() => false)) {
-      await closeBtn.click();
-      await page.waitForTimeout(500);
-      const modal = page.locator('[role="dialog"]').first();
-      await expect(modal).not.toBeVisible({ timeout: 3000 });
-    }
+    await expect(closeBtn).toBeVisible({ timeout: 5000 });
+    await closeBtn.click({ force: true });
+    const modal = page.locator('[role="dialog"]').first();
+    await expect(modal).not.toBeVisible({ timeout: 3000 });
   });
 
   test('invite modal closes with Escape key', async ({ page }) => {
     await openInviteModal(page);
     await page.keyboard.press('Escape');
-    await page.waitForTimeout(500);
     const modal = page.locator('[role="dialog"]').first();
     await expect(modal).not.toBeVisible({ timeout: 3000 });
+  });
+
+  test('inviting a valid email shows pending/sent confirmation', async ({ page }) => {
+    await openInviteModal(page);
+    const emailInput = page.locator('[role="dialog"] input[type="email"], [role="dialog"] input[placeholder*="email" i]').first();
+    await expect(emailInput).toBeVisible({ timeout: 5000 });
+    await emailInput.fill('qa-test-invite@example.com');
+    const sendBtn = page.locator('[role="dialog"] button:has-text("Send"), [role="dialog"] button[type="submit"]').first();
+    await expect(sendBtn).toBeVisible({ timeout: 3000 });
+    await sendBtn.click({ force: true });
+    // After sending, a confirmation message (sent, pending, invited) should appear
+    const confirmation = page.locator(
+      '[role="dialog"] text=/sent|pending|invited|success/i, [role="dialog"] [class*="success"], [role="dialog"] [role="alert"]'
+    ).first();
+    await expect(confirmation).toBeVisible({ timeout: 8000 });
   });
 
 });
@@ -330,9 +353,7 @@ test.describe('RolesTab — Permissions & Role Definitions', () => {
     await page.waitForSelector('.animate-pulse', { state: 'hidden', timeout: 12000 }).catch(() => {});
     for (const role of ['Admin', 'Designer', 'Developer', 'Client', 'Viewer']) {
       const label = page.locator(`text=${role}`).first();
-      if (await label.isVisible({ timeout: 5000 }).catch(() => false)) {
-        await expect(label).toBeVisible();
-      }
+      await expect(label).toBeVisible({ timeout: 8000 });
     }
   });
 
@@ -342,9 +363,7 @@ test.describe('RolesTab — Permissions & Role Definitions', () => {
     const groups = ['Team Members', 'Projects', 'Design & Content'];
     for (const g of groups) {
       const el = page.locator(`text=${g}`).first();
-      if (await el.isVisible({ timeout: 5000 }).catch(() => false)) {
-        await expect(el).toBeVisible();
-      }
+      await expect(el).toBeVisible({ timeout: 8000 });
     }
   });
 
@@ -367,7 +386,9 @@ test.describe('RolesTab — Permissions & Role Definitions', () => {
 
   test('workspace mode toggle (Create/Manage) is present on roles tab', async ({ page }) => {
     await goToTab(page, 'roles');
-    const toggle = page.locator('[role="tablist"]').filter({ hasText: /create|manage/i }).first();
+    const toggle = page.locator(
+      '[role="tablist"]:has-text("Create"), [class*="WorkspaceModeToggle"], button:has-text("Create")'
+    ).first();
     await expect(toggle).toBeVisible({ timeout: 10000 });
   });
 
@@ -390,15 +411,13 @@ test.describe('RolesTab — Permissions & Role Definitions', () => {
 
   test('Manage mode shows different permission groups', async ({ page }) => {
     await goToTab(page, 'roles');
-    const manageTab = page.locator('[role="tab"]:has-text("Manage")').first();
+    const manageTab = page.locator('[role="tab"]:has-text("Manage"), button:has-text("Manage")').first();
     await expect(manageTab).toBeVisible({ timeout: 8000 });
     await manageTab.click();
     await page.waitForTimeout(1000);
     // Manage mode has "Monitoring & Control", "Updates & Approvals"
     const monLabel = page.locator('text=Monitoring').first();
-    if (await monLabel.isVisible({ timeout: 3000 }).catch(() => false)) {
-      await expect(monLabel).toBeVisible();
-    }
+    await expect(monLabel).toBeVisible({ timeout: 5000 });
   });
 
 });

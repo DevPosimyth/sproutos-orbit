@@ -94,6 +94,17 @@ test.describe('Sidebar — Project Search', () => {
     await expect(icon).toBeVisible({ timeout: 8000 });
   });
 
+  test('sidebar search clears with Escape key', async ({ page }) => {
+    const search = page.locator('aside input[placeholder="Search"]').first();
+    await expect(search).toBeVisible({ timeout: 8000 });
+    await search.fill('some search text');
+    expect(await search.inputValue()).toBe('some search text');
+    await search.press('Escape');
+    // After Escape the input should be cleared
+    const val = await search.inputValue();
+    expect(val).toBe('');
+  });
+
 });
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -145,12 +156,11 @@ test.describe('Sidebar — Last Opened', () => {
     await row.hover();
     await page.waitForTimeout(300);
     const dotBtn = row.locator('button').last();
-    if (await dotBtn.isVisible({ timeout: 2000 }).catch(() => false)) {
-      await dotBtn.click({ force: true });
-      await page.waitForTimeout(300);
-      const menu = page.locator('[class*="menu"], [role="menu"]').filter({ hasText: /rename|delete|duplicate|copy/i }).first();
-      await expect(menu).toBeVisible({ timeout: 3000 });
-    }
+    // Hard assert the dot button is visible before clicking
+    await expect(dotBtn).toBeVisible({ timeout: 2000 });
+    await dotBtn.click({ force: true });
+    const menu = page.locator('[class*="menu"], [role="menu"]').filter({ hasText: /rename|delete|duplicate|copy/i }).first();
+    await expect(menu).toBeVisible({ timeout: 3000 });
   });
 
   test('clicking a recent project navigates to /project/sitemap', async ({ page }) => {
@@ -161,7 +171,7 @@ test.describe('Sidebar — Last Opened', () => {
     const item = aside.locator('[class*="truncate"]').first();
     const startUrl = page.url();
     await item.click({ force: true });
-    await page.waitForTimeout(2000);
+    await page.waitForURL(/project|sitemap/i, { timeout: 8000 });
     expect(page.url()).not.toBe(startUrl);
     expect(page.url()).toMatch(/project|sitemap/i);
   });
@@ -214,7 +224,8 @@ test.describe('Sidebar — Get Started Checklist', () => {
 test.describe('Header — Workspace Pill', () => {
 
   test('header is visible at top of page', async ({ page }) => {
-    await expect(page.locator('header')).toBeVisible({ timeout: 10000 });
+    // Use first() to handle cases where locator matches multiple header elements
+    await expect(page.locator('header').first()).toBeVisible({ timeout: 10000 });
   });
 
   test('header height is within expected range (40–56px)', async ({ page }) => {
@@ -238,13 +249,44 @@ test.describe('Header — Workspace Pill', () => {
   });
 
   test('user avatar is shown in header pill', async ({ page }) => {
-    const avatar = page.locator('header [class*="avatar"], header [class*="Avatar"]').first();
+    // Broader selector to handle various avatar/initial implementations
+    const avatar = page.locator(
+      'header [class*="avatar"], header [class*="Avatar"], header img[class*="rounded"], header [class*="user-initial"]'
+    ).first();
     await expect(avatar).toBeVisible({ timeout: 8000 });
   });
 
   test('SproutOS logo is visible in header', async ({ page }) => {
-    const logo = page.locator('header img, header svg').first();
+    // Look for logo by specific class from source code or common logo patterns
+    const logo = page.locator(
+      'header [class*="logo"], header [class*="Logo"], header img[alt*="Sprout" i], header svg[class*="logo"]'
+    ).first();
     await expect(logo).toBeVisible({ timeout: 8000 });
+  });
+
+  test('workspace name click in header opens workspace dropdown', async ({ page }) => {
+    // Click the workspace pill area to open dropdown
+    const wsPill = page.locator('header span.font-zalando-sans').first();
+    await expect(wsPill).toBeVisible({ timeout: 10000 });
+    await wsPill.click({ force: true });
+    // After clicking, a dropdown/popover should appear
+    const dropdown = page.locator(
+      '[role="menu"], [role="listbox"], [class*="dropdown"], [class*="popover"], [class*="workspace-menu"]'
+    ).first();
+    await expect(dropdown).toBeVisible({ timeout: 5000 });
+  });
+
+  test('profile menu items are visible after clicking profile area', async ({ page }) => {
+    const profileArea = page.locator(
+      'aside [class*="profile"], aside [class*="avatar"], aside [class*="user"]'
+    ).first();
+    await expect(profileArea).toBeVisible({ timeout: 8000 });
+    await profileArea.click({ force: true });
+    // After clicking profile area, a menu with items should appear
+    const menuItem = page.locator(
+      '[role="menu"] [role="menuitem"], [class*="menu"] a, [class*="menu"] button'
+    ).first();
+    await expect(menuItem).toBeVisible({ timeout: 5000 });
   });
 
 });
@@ -256,9 +298,7 @@ test.describe('Sidebar — Profile Menu & Logout', () => {
 
   test('user profile/avatar area is visible at bottom of sidebar', async ({ page }) => {
     const profile = page.locator('aside [class*="profile"], aside [class*="avatar"], aside [class*="user"]').first();
-    const isVisible = await profile.isVisible({ timeout: 5000 }).catch(() => false);
-    if (!isVisible) test.skip(true, 'Profile area not found at bottom of sidebar');
-    await expect(profile).toBeVisible();
+    await expect(profile).toBeVisible({ timeout: 8000 });
   });
 
   test('logout action returns user to login or landing page', async ({ page }) => {
@@ -269,21 +309,18 @@ test.describe('Sidebar — Profile Menu & Logout', () => {
     if (!visible) {
       // Try opening profile menu first
       const profileTrigger = page.locator('aside [class*="profile"], aside [class*="avatar"]').first();
-      if (await profileTrigger.isVisible({ timeout: 3000 }).catch(() => false)) {
-        await profileTrigger.click();
-        await page.waitForTimeout(500);
-        const btn = page.locator('button:has-text("Logout"), button:has-text("Sign out"), a:has-text("Log out")').first();
-        if (await btn.isVisible({ timeout: 3000 }).catch(() => false)) {
-          await btn.click();
-          await page.waitForTimeout(2000);
-          expect(page.url()).toMatch(/login|sign-in|^https?:\/\/[^/]+\/?$/i);
-          return;
-        }
-      }
-      test.skip(true, 'Logout button not accessible from this state');
+      // Hard assert profile trigger is visible before clicking
+      await expect(profileTrigger).toBeVisible({ timeout: 5000 });
+      await profileTrigger.click();
+      await page.waitForTimeout(500);
+      const btn = page.locator('button:has-text("Logout"), button:has-text("Sign out"), a:has-text("Log out")').first();
+      await expect(btn).toBeVisible({ timeout: 3000 });
+      await btn.click();
+      await page.waitForURL(/login|sign-in|^https?:\/\/[^/]+\/?$/i, { timeout: 8000 });
+      expect(page.url()).toMatch(/login|sign-in|^https?:\/\/[^/]+\/?$/i);
     } else {
       await logoutBtn.click();
-      await page.waitForTimeout(2000);
+      await page.waitForURL(/login|sign-in|^https?:\/\/[^/]+\/?$/i, { timeout: 8000 });
       expect(page.url()).toMatch(/login|sign-in|^https?:\/\/[^/]+\/?$/i);
     }
   });
