@@ -2,36 +2,89 @@
   "name": "sproutos-orbit",
   "version": "1.0.0",
   "main": "index.js",
-  "scripts": {
-    "test": "playwright test",
-    "test:headed": "playwright test --headed",
-    "test:report": "playwright test --reporter=html",
-    "test:ai": "playwright test --reporter=json",
-    "test:login": "playwright test tests/sproutos/login-pages.spec.js",
-    "test:dashboard": "playwright test tests/sproutos/dashboard/",
-    "test:dashboard-home": "playwright test tests/sproutos/dashboard/home.spec.js",
-    "test:dashboard-sidebar": "playwright test tests/sproutos/dashboard/sidebar.spec.js",
-    "test:dashboard-workspace": "playwright test tests/sproutos/dashboard/workspace.spec.js",
-    "test:dashboard-settings": "playwright test tests/sproutos/dashboard/settings.spec.js",
-    "test:dashboard-security": "playwright test tests/sproutos/dashboard/security.spec.js",
-    "test:homepage": "playwright test tests/sproutos/homepage.spec.js",
-    "test:sitemap": "playwright test tests/sproutos/sitemap.spec.js",
-    "test:scope": "playwright test tests/sproutos/scope.spec.js",
-    "test:design": "playwright test tests/sproutos/design.spec.js",
-    "dashboard:report": "bash scripts/dashboard-report.sh",
-    "qa": "bash scripts/run-all-tests.sh",
-    "qa:quick": "bash scripts/run-all-tests.sh --quick",
-    "qa:full": "bash scripts/run-all-tests.sh --html",
-    "qa:lighthouse": "bash scripts/lighthouse.sh",
-    "qa:lighthouse:desktop": "bash scripts/lighthouse.sh --desktop-only",
-    "qa:lighthouse:mobile": "bash scripts/lighthouse.sh --mobile-only",
-    "qa:seo": "bash scripts/run-all-tests.sh --skip-lighthouse --skip-a11y --skip-links --quick",
-    "qa:a11y": "bash scripts/run-all-tests.sh --skip-lighthouse --skip-seo --skip-links --quick"
-  },
-  "keywords": ["sproutos", "qa", "playwright", "automation", "posimyth"],
+  "description": "QA Automation framework for Sprout OS (sproutos.ai) — POSIMYTH's AI-powered SaaS platform.",
   "author": "POSIMYTH",
   "license": "ISC",
   "type": "commonjs",
+  "keywords": ["sproutos", "qa", "playwright", "automation", "posimyth"],
+  "directories": {
+    "test": "tests"
+  },
+  "scripts": {
+    "test":                         "playwright test",
+    "test:headed":                  "playwright test --headed",
+    "test:report":                  "playwright test --reporter=html",
+
+    "test:homepage":                "playwright test tests/sproutos/homepage.spec.js",
+    "test:auth":                    "playwright test tests/sproutos/auth.spec.js tests/sproutos/login-pages.spec.js",
+    "test:login":                   "playwright test tests/sproutos/login-pages.spec.js",
+
+    "test:dashboard":               "playwright test tests/sproutos/dashboard/",
+    "test:dashboard-home":          "playwright test tests/sproutos/dashboard/home.spec.js",
+    "test:dashboard-sidebar":       "playwright test tests/sproutos/dashboard/sidebar.spec.js",
+    "test:dashboard-workspace":     "playwright test tests/sproutos/dashboard/workspace.spec.js",
+    "test:dashboard-settings":      "playwright test tests/sproutos/dashboard/settings.spec.js",
+    "test:dashboard-security":      "playwright test tests/sproutos/dashboard/security.spec.js",
+
+    "test:guided-brief":            "playwright test tests/sproutos/guided-brief.spec.js",
+    "test:sitemap":                 "playwright test tests/sproutos/sitemap-editor.spec.js tests/sproutos/sitemap.spec.js",
+    "test:sitemap-editor":          "playwright test tests/sproutos/sitemap-editor.spec.js",
+    "test:scope":                   "playwright test tests/sproutos/scope.spec.js",
+    "test:design":                  "playwright test tests/sproutos/design-editor.spec.js tests/sproutos/design.spec.js",
+    "test:design-editor":           "playwright test tests/sproutos/design-editor.spec.js",
+    "test:section-variants":        "playwright test tests/sproutos/section-variants.spec.js",
+    "test:color-system":            "playwright test tests/sproutos/color-system.spec.js",
+    "test:ai-text":                 "playwright test tests/sproutos/ai-text-popup.spec.js",
+    "test:image-picker":            "playwright test tests/sproutos/image-picker.spec.js",
+    "test:export":                  "playwright test tests/sproutos/export.spec.js",
+    "test:team":                    "playwright test tests/sproutos/team-management.spec.js",
+    "test:tokens":                  "playwright test tests/sproutos/token-usage.spec.js",
+    "test:settings":                "playwright test tests/sproutos/user-settings.spec.js",
+
+    "test:manage":                  "playwright test tests/sproutos/manage-overview.spec.js tests/sproutos/manage-actions.spec.js tests/sproutos/manage-build.spec.js tests/sproutos/manage-mcp.spec.js tests/sproutos/manage-approvals.spec.js",
+    "test:manage-overview":         "playwright test tests/sproutos/manage-overview.spec.js",
+    "test:manage-actions":          "playwright test tests/sproutos/manage-actions.spec.js",
+    "test:manage-build":            "playwright test tests/sproutos/manage-build.spec.js",
+    "test:manage-mcp":              "playwright test tests/sproutos/manage-mcp.spec.js",
+    "test:manage-approvals":        "playwright test tests/sproutos/manage-approvals.spec.js",
+
+    "test:a11y":                    "playwright test tests/sproutos/accessibility.spec.js",
+    "test:console":                 "playwright test tests/sproutos/console-errors.spec.js",
+    "test:seo":                     "playwright test tests/sproutos/seo.spec.js",
+    "test:perf":                    "playwright test tests/sproutos/performance.spec.js",
+    "test:security":                "playwright test tests/sproutos/security.spec.js",
+    "test:responsive":              "playwright test tests/sproutos/responsive.spec.js",
+    "test:visual":                  "playwright test tests/sproutos/visual-regression.spec.js",
+    "test:visual:update":           "playwright test tests/sproutos/visual-regression.spec.js --update-snapshots",
+
+    "test:desktop":                 "playwright test --project=sproutos-desktop",
+    "test:tablet":                  "playwright test --project=sproutos-tablet",
+    "test:mobile":                  "playwright test --project=sproutos-mobile",
+
+    "dashboard:report":             "bash scripts/dashboard-report.sh",
+
+    "qa":                           "bash scripts/run-all-tests.sh",
+    "qa:quick":                     "bash scripts/run-all-tests.sh --quick",
+    "qa:full":                      "bash scripts/run-all-tests.sh --html",
+    "qa:headed":                    "bash scripts/run-all-tests.sh --headed",
+    "qa:no-visual":                 "bash scripts/run-all-tests.sh --skip-visual",
+    "qa:no-perf":                   "bash scripts/run-all-tests.sh --skip-perf",
+
+    "qa:seo":                       "bash scripts/run-all-tests.sh --skip-lighthouse --skip-a11y --skip-links --skip-visual --skip-perf --quick",
+    "qa:a11y":                      "bash scripts/run-all-tests.sh --skip-lighthouse --skip-seo --skip-links --skip-visual --skip-perf --quick",
+    "qa:console":                   "bash scripts/run-all-tests.sh --skip-lighthouse --skip-seo --skip-links --skip-a11y --skip-visual --skip-perf --quick",
+    "qa:security":                  "bash scripts/run-all-tests.sh --skip-lighthouse --skip-seo --skip-links --skip-a11y --skip-visual --skip-perf --quick --feature security",
+    "qa:visual":                    "bash scripts/run-all-tests.sh --skip-lighthouse --skip-seo --skip-links --skip-a11y --skip-console --skip-perf --quick",
+    "qa:perf":                      "bash scripts/run-all-tests.sh --skip-lighthouse --skip-seo --skip-links --skip-a11y --skip-console --skip-visual --quick",
+
+    "qa:lighthouse":                "bash scripts/lighthouse.sh",
+    "qa:lighthouse:desktop":        "bash scripts/lighthouse.sh --desktop-only",
+    "qa:lighthouse:mobile":         "bash scripts/lighthouse.sh --mobile-only",
+    "qa:lighthouse:no-threshold":   "bash scripts/lighthouse.sh --no-threshold",
+
+    "qa:feature":                   "bash scripts/run-all-tests.sh --quick --feature",
+    "qa:manage":                    "bash scripts/run-all-tests.sh --quick --feature manage"
+  },
   "devDependencies": {
     "@axe-core/playwright": "^4.11.2",
     "@playwright/test": "^1.59.1",
@@ -44,9 +97,5 @@
     "playwright": "^1.59.1",
     "unzipper": "^0.12.3",
     "zod": "^4.3.6"
-  },
-  "directories": {
-    "test": "tests"
-  },
-  "description": "QA Automation framework for Sprout OS (sproutos.ai) — POSIMYTH's AI-powered SaaS platform."
+  }
 }

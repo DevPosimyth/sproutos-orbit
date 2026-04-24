@@ -3,71 +3,111 @@
 
   "product": {
     "name": "Sprout OS",
+    "url": "https://sproutos.ai",
     "type": "saas-web",
-    "version": "1.0.0",
     "team": "Sprout OS QA"
   },
 
-  "properties": {
-    "sproutos": {
-      "name": "Sprout OS",
-      "url": "https://sproutos.ai",
-      "testAreas": [
-        "login-pages",
-        "dashboard",
-        "sitemap",
-        "scope",
-        "design"
-      ]
-    }
-  },
-
   "environment": {
-    "qaEmail": "qa@example.com",
-    "qaPassword": "ReplaceMe",
+    "targetUrl": "https://sproutos.ai",
     "stagingUrl": "",
-    "runAgainst": "production"
+    "runAgainst": "production",
+    "testUserEmail": "qa@yourworkspace.com",
+    "testUserPassword": "ReplaceWithSecurePassword",
+    "testAdminEmail": "admin@yourworkspace.com",
+    "testAdminPassword": "ReplaceWithSecurePassword",
+    "testWpSiteUrl": "https://your-test-wp-site.com",
+    "testWpAppPassword": "xxxx xxxx xxxx xxxx xxxx xxxx"
   },
 
-  "competitors": [
-    "https://vercel.com",
-    "https://railway.app",
-    "https://render.com"
-  ],
-
-  "qaFocus": {
-    "priority": "full",
-    "testAreas": [
-      "login-pages",
-      "dashboard",
-      "sitemap",
-      "scope",
-      "design"
+  "testAreas": {
+    "createMode": [
+      "homepage",
+      "auth",
+      "guided-brief",
+      "sitemap-editor",
+      "design-editor",
+      "section-variants",
+      "color-system",
+      "ai-text-popup",
+      "image-picker",
+      "export",
+      "team-management",
+      "token-usage",
+      "user-settings"
+    ],
+    "manageMode": [
+      "manage-overview",
+      "manage-actions",
+      "manage-build",
+      "manage-mcp",
+      "manage-approvals"
+    ],
+    "crossCutting": [
+      "accessibility",
+      "console-errors",
+      "seo",
+      "performance",
+      "security",
+      "responsive",
+      "visual-regression"
     ]
   },
 
   "thresholds": {
     "lighthouse": {
-      "performance": 75,
-      "accessibility": 85,
-      "bestPractices": 80,
-      "seo": 80
+      "performance":    80,
+      "accessibility":  90,
+      "bestPractices":  85,
+      "seo":            90
     },
-    "jsBundleKb": 500,
-    "cssBundleKb": 200,
-    "pageLoadMs": 4000
+    "coreWebVitals": {
+      "lcpMs":          2500,
+      "clsScore":       0.1,
+      "tbtMs":          300,
+      "fcpMs":          2000,
+      "ttfbMs":         800,
+      "inpMs":          200
+    },
+    "bundleSize": {
+      "initialJsKb":    300,
+      "initialCssKb":   100,
+      "pageLoadMs":     3000
+    },
+    "apiLatency": {
+      "defaultP95Ms":   500,
+      "aiEndpointP95Ms": 4000,
+      "mcpEndpointP95Ms": 8000,
+      "crawlEndpointP95Ms": 8000
+    },
+    "accessibility": {
+      "maxCriticalViolations": 0,
+      "maxSeriousViolations":  0
+    }
   },
 
   "viewports": {
-    "mobile": { "width": 375, "height": 812 },
-    "tablet": { "width": 768, "height": 1024 },
-    "desktop": { "width": 1440, "height": 900 }
+    "mobile":  { "width": 375,  "height": 812  },
+    "tablet":  { "width": 768,  "height": 1024 },
+    "desktop": { "width": 1440, "height": 900  }
   },
 
   "reporting": {
-    "outputDir": "reports",
-    "screenshotsDir": "reports/screenshots",
-    "snapshotsDir": "tests/snapshots",
-    "htmlReport": "reports/playwright-html"
-  }
+    "outputDir":          "reports",
+    "screenshotsDir":     "reports/screenshots",
+    "snapshotsDir":       "tests/snapshots",
+    "htmlReport":         "reports/playwright-html",
+    "lighthouseDir":      "reports/lighthouse",
+    "a11yDir":            "reports/a11y",
+    "visualRegressionDir":"reports/visual-regression",
+    "perfDir":            "reports/perf",
+    "bugReport":          "docs/dashboard-qa-report.md"
+  },
+
+  "skipList": [
+    { "key": "ai-design-agent",  "reason": "AI responses non-deterministic — visual output changes per run" },
+    { "key": "pitch-concepts",   "reason": "Color concepts generated dynamically — intentional variance" },
+    { "key": "guided-brief",     "reason": "Multi-step wizard state too variable for automated snapshot" },
+    { "key": "process-thread",   "reason": "Claude output text non-deterministic" }
+  ]
 }
