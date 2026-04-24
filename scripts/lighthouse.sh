@@ -2,7 +2,10 @@
 # =============================================================================
 # Sprout OS Orbit — Lighthouse Extreme QA Scanner
 # Runs desktop + mobile Lighthouse on all key pages, enforces thresholds,
-# extracts Core Web Vitals, and generates a markdown scorecard.
+# extracts Core Web Vitals (LCP, CLS, TBT, FCP, INP), and generates a
+# markdown scorecard.
+#
+# Thresholds aligned with config/performance.config.js coreWebVitals.
 #
 # Usage  : bash scripts/lighthouse.sh [OPTIONS]
 #
@@ -18,7 +21,9 @@ set -euo pipefail
 
 # ── Load .env ─────────────────────────────────────────────────────────────────
 if [ -f .env ]; then
-  export $(grep -v '^#' .env | xargs -d '\n') 2>/dev/null || true
+  set -a
+  source .env 2>/dev/null || true
+  set +a
 fi
 
 # ── Config ────────────────────────────────────────────────────────────────────
@@ -27,31 +32,38 @@ REPORT_DIR="reports/lighthouse"
 TIMESTAMP=$(date +"%Y-%m-%d_%H-%M-%S")
 SCORECARD="$REPORT_DIR/scorecard-$TIMESTAMP.md"
 
-# Flags
 RUN_DESKTOP=true
 RUN_MOBILE=true
 ENFORCE_THRESHOLDS=true
 CUSTOM_PAGES=""
 
-for arg in "$@"; do
+i=1
+while [ $i -le $# ]; do
+  arg="${!i}"
   case $arg in
-    --url)            shift; BASE_URL="$1" ;;
-    --desktop-only)   RUN_MOBILE=false ;;
-    --mobile-only)    RUN_DESKTOP=false ;;
-    --no-threshold)   ENFORCE_THRESHOLDS=false ;;
-    --pages)          shift; CUSTOM_PAGES="$1" ;;
+    --url)           i=$((i+1)); BASE_URL="${!i}" ;;
+    --desktop-only)  RUN_MOBILE=false ;;
+    --mobile-only)   RUN_DESKTOP=false ;;
+    --no-threshold)  ENFORCE_THRESHOLDS=false ;;
+    --pages)         i=$((i+1)); CUSTOM_PAGES="${!i}" ;;
   esac
+  i=$((i+1))
 done
 
-# ── Thresholds (PM-approved minimum scores out of 100) ────────────────────────
-THRESH_PERF=75      # Performance
-THRESH_A11Y=85      # Accessibility
-THRESH_BP=80        # Best Practices
-THRESH_SEO=85       # SEO
-THRESH_LCP=4000     # Largest Contentful Paint (ms)
-THRESH_CLS=0.1      # Cumulative Layout Shift
-THRESH_TBT=600      # Total Blocking Time (ms)
-THRESH_FCP=3000     # First Contentful Paint (ms)
+# ── Thresholds — aligned with config/performance.config.js coreWebVitals ──────
+# Category scores (out of 100)
+THRESH_PERF=80      # Performance
+THRESH_A11Y=90      # Accessibility (WCAG 2.1 AA target)
+THRESH_BP=85        # Best Practices
+THRESH_SEO=90       # SEO
+
+# Core Web Vitals (budgets from performance.config.js)
+THRESH_LCP=2500     # Largest Contentful Paint (ms)   — lcp.budget
+THRESH_CLS=0.1      # Cumulative Layout Shift          — cls.budget
+THRESH_TBT=300      # Total Blocking Time (ms)         — tbt.budget
+THRESH_FCP=2000     # First Contentful Paint (ms)      — fcp.budget
+THRESH_TTFB=800     # Time to First Byte (ms)          — ttfb.budget (good threshold)
+# INP not available in Lighthouse JSON output — tracked separately via field data
 
 # ── Colors ────────────────────────────────────────────────────────────────────
 RED='\033[0;31m'
@@ -72,9 +84,9 @@ if [ -n "$CUSTOM_PAGES" ]; then
 else
   PAGE_PATHS=(
     "/"
-    "/auth/login"
-    "/auth/signup"
-    "/auth/forgot-password"
+    "/login"
+    "/signup"
+    "/forgot-password"
   )
 fi
 
@@ -114,16 +126,18 @@ cat > "$SCORECARD" <<MDEOF
 
 ## Thresholds
 
-| Metric | Threshold |
-|--------|-----------|
-| Performance | ≥ $THRESH_PERF |
-| Accessibility | ≥ $THRESH_A11Y |
-| Best Practices | ≥ $THRESH_BP |
-| SEO | ≥ $THRESH_SEO |
-| LCP | ≤ ${THRESH_LCP}ms |
-| CLS | ≤ $THRESH_CLS |
-| TBT | ≤ ${THRESH_TBT}ms |
-| FCP | ≤ ${THRESH_FCP}ms |
+| Metric | Threshold | Source |
+|--------|-----------|--------|
+| Performance score | ≥ $THRESH_PERF | PM-approved minimum |
+| Accessibility score | ≥ $THRESH_A11Y | WCAG 2.1 AA target |
+| Best Practices score | ≥ $THRESH_BP | PM-approved minimum |
+| SEO score | ≥ $THRESH_SEO | PM-approved minimum |
+| LCP (Largest Contentful Paint) | ≤ ${THRESH_LCP}ms | performance.config.js lcp.budget |
+| CLS (Cumulative Layout Shift) | ≤ $THRESH_CLS | performance.config.js cls.budget |
+| TBT (Total Blocking Time) | ≤ ${THRESH_TBT}ms | performance.config.js tbt.budget |
+| FCP (First Contentful Paint) | ≤ ${THRESH_FCP}ms | performance.config.js fcp.budget |
+| TTFB (Time to First Byte) | ≤ ${THRESH_TTFB}ms | performance.config.js ttfb.budget |
+| INP (Interaction to Next Paint) | field data only | ≤ 200ms good (Google threshold) |
 
 ---
 
@@ -147,8 +161,6 @@ run_scan() {
   echo ""
   echo -e "${CYAN}${BOLD}  ▶ [$profile] $url${NC}"
 
-  # Build Lighthouse flags
-  local LH_FLAGS="--chrome-flags='--headless --no-sandbox --disable-dev-shm-usage'"
   local LH_PRESET=""
   if [ "$profile" = "mobile" ]; then
     LH_PRESET="--preset=perf --emulated-form-factor=mobile --throttling-method=simulate"
@@ -179,14 +191,15 @@ run_scan() {
     SCORE_SEO=$(jq '(.categories.seo.score // 0) * 100 | round'              "$json_out" 2>/dev/null || echo 0)
 
     # Core Web Vitals
-    LCP_MS=$(jq '.audits["largest-contentful-paint"].numericValue // 9999 | round'     "$json_out" 2>/dev/null || echo 9999)
+    LCP_MS=$(jq  '.audits["largest-contentful-paint"].numericValue // 9999 | round'        "$json_out" 2>/dev/null || echo 9999)
     CLS_VAL=$(jq '.audits["cumulative-layout-shift"].numericValue // 9 | . * 1000 | round | . / 1000' "$json_out" 2>/dev/null || echo 9)
-    TBT_MS=$(jq '.audits["total-blocking-time"].numericValue // 9999 | round'          "$json_out" 2>/dev/null || echo 9999)
-    FCP_MS=$(jq '.audits["first-contentful-paint"].numericValue // 9999 | round'       "$json_out" 2>/dev/null || echo 9999)
-    TTI_MS=$(jq '.audits["interactive"].numericValue // 9999 | round'                  "$json_out" 2>/dev/null || echo 9999)
-    SI_MS=$(jq '.audits["speed-index"].numericValue // 9999 | round'                   "$json_out" 2>/dev/null || echo 9999)
+    TBT_MS=$(jq  '.audits["total-blocking-time"].numericValue // 9999 | round'             "$json_out" 2>/dev/null || echo 9999)
+    FCP_MS=$(jq  '.audits["first-contentful-paint"].numericValue // 9999 | round'          "$json_out" 2>/dev/null || echo 9999)
+    TTFB_MS=$(jq '.audits["server-response-time"].numericValue // 9999 | round'            "$json_out" 2>/dev/null || echo 9999)
+    TTI_MS=$(jq  '.audits["interactive"].numericValue // 9999 | round'                     "$json_out" 2>/dev/null || echo 9999)
+    SI_MS=$(jq   '.audits["speed-index"].numericValue // 9999 | round'                     "$json_out" 2>/dev/null || echo 9999)
 
-    # ── Display scores ──────────────────────────────────────────────────────
+    # ── Display category scores ─────────────────────────────────────────────
     echo ""
     echo -e "    ${BOLD}Category Scores${NC}"
     score_line() {
@@ -204,6 +217,7 @@ run_scan() {
     score_line "Best Practices" "$SCORE_BP"   "$THRESH_BP"
     score_line "SEO           " "$SCORE_SEO"  "$THRESH_SEO"
 
+    # ── Core Web Vitals ──────────────────────────────────────────────────────
     echo ""
     echo -e "    ${BOLD}Core Web Vitals${NC}"
 
@@ -217,16 +231,18 @@ run_scan() {
       fi
     }
 
-    cwv_line "LCP (Largest Contentful Paint)" "$LCP_MS" "$THRESH_LCP" "ms"
-    cwv_line "TBT (Total Blocking Time)      " "$TBT_MS" "$THRESH_TBT" "ms"
-    cwv_line "FCP (First Contentful Paint)   " "$FCP_MS" "$THRESH_FCP" "ms"
-    cwv_line "CLS (Cumulative Layout Shift)  " "$CLS_VAL" "$THRESH_CLS" ""
-    info     "TTI (Time to Interactive)      : ${TTI_MS}ms"
-    info     "SI  (Speed Index)              : ${SI_MS}ms"
+    cwv_line "LCP  (Largest Contentful Paint)" "$LCP_MS"  "$THRESH_LCP"  "ms"
+    cwv_line "TBT  (Total Blocking Time)     " "$TBT_MS"  "$THRESH_TBT"  "ms"
+    cwv_line "FCP  (First Contentful Paint)  " "$FCP_MS"  "$THRESH_FCP"  "ms"
+    cwv_line "TTFB (Time to First Byte)      " "$TTFB_MS" "$THRESH_TTFB" "ms"
+    cwv_line "CLS  (Cumulative Layout Shift) " "$CLS_VAL" "$THRESH_CLS"  ""
+    info     "TTI  (Time to Interactive)     : ${TTI_MS}ms (informational)"
+    info     "SI   (Speed Index)             : ${SI_MS}ms (informational)"
+    info     "INP  (Interaction to Next Paint): measured via field data / RUM — budget ≤200ms"
 
     # ── SEO-specific Lighthouse audit items ───────────────────────────────────
     echo ""
-    echo -e "    ${BOLD}Key SEO Audits${NC}"
+    echo -e "    ${BOLD}Key Lighthouse Audits${NC}"
 
     lh_audit() {
       local id="$1" label="$2"
@@ -242,21 +258,34 @@ run_scan() {
       fi
     }
 
-    lh_audit "document-title"            "Document has a <title> element"
-    lh_audit "meta-description"          "Document has meta description"
-    lh_audit "http-status-code"          "Page has successful HTTP status code"
-    lh_audit "link-text"                 "Links have descriptive text"
-    lh_audit "crawlable-anchors"         "Links are crawlable"
-    lh_audit "robots-txt"                "robots.txt is valid"
-    lh_audit "image-alt"                 "Image elements have alt attributes"
-    lh_audit "hreflang"                  "hreflang is valid"
-    lh_audit "canonical"                 "Document has a valid rel=canonical"
-    lh_audit "font-size"                 "Document uses legible font sizes"
-    lh_audit "tap-targets"               "Touch targets are sized appropriately"
-    lh_audit "uses-text-compression"     "Text resources are compressed (gzip)"
-    lh_audit "uses-https"                "Uses HTTPS"
-    lh_audit "no-vulnerable-libraries"   "No front-end JS libraries with known vulns"
-    lh_audit "csp-xss"                   "CSP is effective against XSS attacks"
+    # SEO
+    lh_audit "document-title"             "Document has a <title> element"
+    lh_audit "meta-description"           "Document has meta description"
+    lh_audit "http-status-code"           "Page has successful HTTP status code"
+    lh_audit "link-text"                  "Links have descriptive text"
+    lh_audit "crawlable-anchors"          "Links are crawlable"
+    lh_audit "robots-txt"                 "robots.txt is valid"
+    lh_audit "canonical"                  "Document has a valid rel=canonical"
+    lh_audit "hreflang"                   "hreflang is valid"
+
+    # Accessibility
+    lh_audit "image-alt"                  "Image elements have alt attributes"
+    lh_audit "font-size"                  "Document uses legible font sizes"
+    lh_audit "tap-targets"                "Touch targets are sized appropriately"
+    lh_audit "color-contrast"             "Background and foreground colors have sufficient contrast ratio"
+
+    # Performance
+    lh_audit "uses-text-compression"      "Text resources are compressed (gzip/br)"
+    lh_audit "uses-optimized-images"      "Images are appropriately sized"
+    lh_audit "render-blocking-resources"  "Eliminate render-blocking resources"
+    lh_audit "unused-javascript"          "Reduce unused JavaScript"
+    lh_audit "unused-css-rules"           "Reduce unused CSS"
+
+    # Security / Best practices
+    lh_audit "uses-https"                 "Uses HTTPS"
+    lh_audit "no-vulnerable-libraries"    "No front-end JS libraries with known vulnerabilities"
+    lh_audit "csp-xss"                    "CSP is effective against XSS attacks"
+    lh_audit "deprecations"               "Does not use deprecated APIs"
 
     # ── Scorecard row ─────────────────────────────────────────────────────────
     STATUS_ICON="✅"
@@ -265,16 +294,18 @@ run_scan() {
     cat >> "$SCORECARD" <<ROWEOF
 ### $STATUS_ICON [$profile] $url
 
-| Metric | Score | Threshold | Status |
+| Metric | Value | Threshold | Status |
 |--------|-------|-----------|--------|
-| Performance | $SCORE_PERF | ≥$THRESH_PERF | $([ "$SCORE_PERF" -ge "$THRESH_PERF" ] && echo "✅" || echo "❌") |
-| Accessibility | $SCORE_A11Y | ≥$THRESH_A11Y | $([ "$SCORE_A11Y" -ge "$THRESH_A11Y" ] && echo "✅" || echo "❌") |
-| Best Practices | $SCORE_BP | ≥$THRESH_BP | $([ "$SCORE_BP" -ge "$THRESH_BP" ] && echo "✅" || echo "❌") |
-| SEO | $SCORE_SEO | ≥$THRESH_SEO | $([ "$SCORE_SEO" -ge "$THRESH_SEO" ] && echo "✅" || echo "❌") |
+| Performance | $SCORE_PERF / 100 | ≥$THRESH_PERF | $([ "$SCORE_PERF" -ge "$THRESH_PERF" ] && echo "✅" || echo "❌") |
+| Accessibility | $SCORE_A11Y / 100 | ≥$THRESH_A11Y | $([ "$SCORE_A11Y" -ge "$THRESH_A11Y" ] && echo "✅" || echo "❌") |
+| Best Practices | $SCORE_BP / 100 | ≥$THRESH_BP | $([ "$SCORE_BP" -ge "$THRESH_BP" ] && echo "✅" || echo "❌") |
+| SEO | $SCORE_SEO / 100 | ≥$THRESH_SEO | $([ "$SCORE_SEO" -ge "$THRESH_SEO" ] && echo "✅" || echo "❌") |
 | LCP | ${LCP_MS}ms | ≤${THRESH_LCP}ms | $(echo "$LCP_MS <= $THRESH_LCP" | bc -l 2>/dev/null | grep -q 1 && echo "✅" || echo "❌") |
-| CLS | $CLS_VAL | ≤$THRESH_CLS | $(echo "$CLS_VAL <= $THRESH_CLS" | bc -l 2>/dev/null | grep -q 1 && echo "✅" || echo "❌") |
 | TBT | ${TBT_MS}ms | ≤${THRESH_TBT}ms | $(echo "$TBT_MS <= $THRESH_TBT" | bc -l 2>/dev/null | grep -q 1 && echo "✅" || echo "❌") |
 | FCP | ${FCP_MS}ms | ≤${THRESH_FCP}ms | $(echo "$FCP_MS <= $THRESH_FCP" | bc -l 2>/dev/null | grep -q 1 && echo "✅" || echo "❌") |
+| TTFB | ${TTFB_MS}ms | ≤${THRESH_TTFB}ms | $(echo "$TTFB_MS <= $THRESH_TTFB" | bc -l 2>/dev/null | grep -q 1 && echo "✅" || echo "❌") |
+| CLS | $CLS_VAL | ≤$THRESH_CLS | $(echo "$CLS_VAL <= $THRESH_CLS" | bc -l 2>/dev/null | grep -q 1 && echo "✅" || echo "❌") |
+| INP | — | ≤200ms (field) | ℹ️ |
 
 - HTML report: \`$html_out\`
 
@@ -321,6 +352,15 @@ cat >> "$SCORECARD" <<MDEOF
 - **Total scans:** $TOTAL_SCANS
 - **Failed:** $FAILED_SCANS
 - **Passed:** $((TOTAL_SCANS - FAILED_SCANS))
+
+### Threshold Reference
+
+Thresholds are defined in \`config/performance.config.js\` (coreWebVitals section).
+To tighten or relax a threshold, update both that config file and the \`THRESH_*\` variables in this script.
+
+> **INP (Interaction to Next Paint)** replaces FID as a Core Web Vital.
+> It cannot be measured by Lighthouse lab mode — use Chrome UX Report or RUM tooling.
+> Budget: ≤200ms (Good), ≤500ms (Needs Improvement), >500ms (Poor).
 
 MDEOF
 
