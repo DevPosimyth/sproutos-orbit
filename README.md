@@ -282,12 +282,22 @@ npx playwright test --project=sproutos-desktop
 
 ## 📋 Checklists
 
-Manual QA checklists live in `checklists/`:
+Manual QA checklists live in `checklists/`. Run the relevant checklist for each testing area before release.
 
-- `pre-release-checklist.md`
-- `performance-checklist.md`
-- `security-checklist.md`
-- `ui-ux-checklist.md`
+| Checklist | Purpose |
+|---|---|
+| [`functionality-checklist.md`](checklists/functionality-checklist.md) | Feature-by-feature verification across all 28 product areas |
+| [`logic-checklist.md`](checklists/logic-checklist.md) | Business rules, state management, edge cases, data persistence |
+| [`responsiveness-checklist.md`](checklists/responsiveness-checklist.md) | All viewports (1920px → 320px), device orientations, touch |
+| [`accessibility-checklist.md`](checklists/accessibility-checklist.md) | WCAG 2.1 AA, keyboard nav, screen readers, axe-core |
+| [`cross-browser-checklist.md`](checklists/cross-browser-checklist.md) | Chrome, Firefox, Safari, Edge — with per-feature browser matrix |
+| [`console-errors-checklist.md`](checklists/console-errors-checklist.md) | JS errors, network failures, memory leaks, per-feature action table |
+| [`seo-meta-checklist.md`](checklists/seo-meta-checklist.md) | Title tags, OG, canonical, robots.txt, sitemap.xml, structured data |
+| [`security-checklist.md`](checklists/security-checklist.md) | Headers, auth, authz, input handling, Manage Mode credentials, MCP |
+| [`performance-checklist.md`](checklists/performance-checklist.md) | Lighthouse, Core Web Vitals, bundle size, per-feature latency targets |
+| [`ui-ux-checklist.md`](checklists/ui-ux-checklist.md) | UI layout, forms, loading/empty states, microinteractions |
+| [`code-quality-checklist.md`](checklists/code-quality-checklist.md) | TypeScript, React, Next.js, state, API, security hygiene, deps |
+| [`pre-release-checklist.md`](checklists/pre-release-checklist.md) | Full sign-off gate — run everything before tagging a release |
 
 ---
 
