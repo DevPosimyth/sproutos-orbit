@@ -1,0 +1,61 @@
+{
+  "_comment": "Bundle size thresholds for Sprout OS performance regression detection. All sizes are gzipped bytes unless noted. Run against the Next.js .next/static build output.",
+
+  "thresholds": {
+    "initial": {
+      "_comment": "Resources loaded on every page (shared chunks, framework, CSS)",
+      "js_gzipped_bytes":  307200,
+      "css_gzipped_bytes": 102400,
+      "total_gzipped_bytes": 409600
+    },
+
+    "routes": {
+      "_comment": "Per-route JS chunk limits (gzipped). These are the lazy-loaded page bundles.",
+      "homepage":       { "max_gzipped_bytes": 102400 },
+      "login":          { "max_gzipped_bytes": 51200  },
+      "signup":         { "max_gzipped_bytes": 51200  },
+      "dashboard":      { "max_gzipped_bytes": 153600 },
+      "sitemap_editor": { "max_gzipped_bytes": 307200, "_note": "React Flow + Dagre" },
+      "design_editor":  { "max_gzipped_bytes": 512000, "_note": "dnd-kit + Framer Motion + GSAP + iframe logic" },
+      "manage_mode":    { "max_gzipped_bytes": 307200, "_note": "MCP client + process thread UI" },
+      "build_tab":      { "max_gzipped_bytes": 204800, "_note": "CodeMirror syntax highlighting" }
+    },
+
+    "third_party": {
+      "_comment": "Total transferred bytes from third-party origins (uncompressed network transfer)",
+      "max_transferred_bytes": 153600,
+      "origins": [
+        { "pattern": "mixpanel.com",      "max_bytes": 51200,  "load": "async" },
+        { "pattern": "fonts.googleapis.com", "max_bytes": 10240, "load": "preconnect" },
+        { "pattern": "fonts.gstatic.com", "max_bytes": 61440,  "load": "preload" }
+      ]
+    },
+
+    "images": {
+      "_comment": "Static image asset size limits",
+      "max_single_png_bytes":  204800,
+      "max_single_webp_bytes": 102400,
+      "max_og_image_bytes":    153600,
+      "favicon_max_bytes":     10240
+    },
+
+    "fonts": {
+      "_comment": "Per font-face file size limits (woff2)",
+      "max_single_font_bytes": 102400,
+      "max_total_initial_fonts_bytes": 204800
+    }
+  },
+
+  "regression_policy": {
+    "_comment": "How much growth is allowed vs. the previous release before the check fails",
+    "js_growth_percent_allowed":    10,
+    "css_growth_percent_allowed":   10,
+    "total_growth_percent_allowed": 10,
+    "fail_on_regression": true
+  },
+
+  "report": {
+    "output_dir": "reports/bundlesize",
+    "format": ["json", "text"]
+  }
+}
