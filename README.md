@@ -191,41 +191,6 @@ npx playwright show-report reports/playwright-html
 
 ---
 
-## 🌐 Environment Variables
-
-Copy `.env.example` to `.env` and fill in your values:
-
-```
-SPROUTOS_URL=https://sproutos.ai
-
-TEST_USER_EMAIL=qa@example.com
-TEST_USER_PASSWORD=your-test-password
-
-TEST_ADMIN_EMAIL=admin@example.com
-TEST_ADMIN_PASSWORD=your-admin-password
-
-TEST_WP_SITE_URL=https://your-wp-site.com
-TEST_WP_APP_PASSWORD=xxxx xxxx xxxx xxxx xxxx xxxx
-
-TEST_MEMBER_EMAIL=member@example.com
-TEST_MEMBER_PASSWORD=your-member-password
-
-TEST_INVITE_EMAIL=invite@example.com
-```
-
-| Variable | Required for |
-|---|---|
-| `SPROUTOS_URL` | All tests |
-| `TEST_USER_EMAIL` / `TEST_USER_PASSWORD` | All auth-gated tests |
-| `TEST_ADMIN_EMAIL` / `TEST_ADMIN_PASSWORD` | Team, billing, workspace-owner tests |
-| `TEST_WP_SITE_URL` / `TEST_WP_APP_PASSWORD` | Manage Mode / MCP integration tests |
-| `TEST_MEMBER_EMAIL` / `TEST_MEMBER_PASSWORD` | Invite & team flow tests |
-| `TEST_INVITE_EMAIL` | Invite acceptance flow |
-
-Tests skip gracefully if credentials are missing.
-
----
-
 ## 📂 Repo Layout
 
 ```
