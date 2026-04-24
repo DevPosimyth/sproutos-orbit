@@ -106,9 +106,8 @@ cd sproutos-orbit
 npm install
 npx playwright install
 
-# Copy env template
-cp qa.config.example.json qa.config.json
-# Create .env with credentials (see Environment Variables below)
+# Copy env template and fill in your credentials
+cp .env.example .env
 
 npm test
 ```
@@ -127,50 +126,47 @@ npm test
 
 ```bash
 # Auth
-npm run test:login             # Login / Signup / Forgot Password / OAuth
-npm run test:onboarding        # First-time user onboarding flow
+npm run test:auth              # Login / Signup / Forgot Password / OAuth
+npm run test:login             # Login pages only
 
-# Dashboard & Workspaces
-npm run test:dashboard         # Auth-gated dashboard + workspace switcher
-npm run test:projects          # Project creation, cards, context menu
+# Dashboard
+npm run test:dashboard         # Full dashboard suite
+npm run test:dashboard-home    # Dashboard home tab
+npm run test:dashboard-sidebar # Sidebar navigation
+npm run test:dashboard-workspace # Workspace switcher
+npm run test:dashboard-settings  # Dashboard settings
+npm run test:dashboard-security  # Auth-gating & security
 
-# Brief & Crawl
+# Create Mode
 npm run test:guided-brief      # 6-step guided brief wizard
-npm run test:crawl             # Website crawl & auto-populate
-
-# Sitemap
 npm run test:sitemap-editor    # Visual sitemap editor
-npm run test:sitemap-chat      # AI Sitemap Chat
-
-# Design
-npm run test:design            # Design editor canvas + variants
-npm run test:colors            # Color system & theming
-npm run test:typography        # Font management
-npm run test:ai-text           # AI text generation
-npm run test:images            # Image handling & media
-npm run test:responsive        # Multi-viewport rendering
-npm run test:ai-design         # AI Design Agent
-npm run test:styleguide        # Styleguide & design system
-npm run test:pitch             # Pitch concepts
-
-# Collaboration
-npm run test:comments          # Comments & collaboration
+npm run test:design-editor     # Design editor canvas + variants
+npm run test:section-variants  # Section variant picker
+npm run test:color-system      # Color palette & theming
+npm run test:ai-text           # AI text generation popup
+npm run test:image-picker      # Image picker (stock, upload, library)
 npm run test:export            # Export (Elementor, Gutenberg, Figma)
-
-# Team & Settings
 npm run test:team              # Team management & invites
-npm run test:roles             # Roles & permissions
 npm run test:tokens            # Token usage & billing
 npm run test:settings          # User settings
+npm run test:responsive        # Multi-viewport rendering
 
 # Manage Mode
-npm run test:manage-overview   # Manage → Overview tab (scan, approvals, activity)
-npm run test:manage-actions    # Manage → Actions (library, playbooks, automations)
-npm run test:manage-build      # Manage → Build (module lifecycle)
-npm run test:manage-connectors # Manage → External connectors
+npm run test:manage            # All Manage Mode suites
+npm run test:manage-overview   # Manage → Overview tab
+npm run test:manage-actions    # Manage → Actions / Playbooks / Automations
+npm run test:manage-build      # Manage → Build module lifecycle
+npm run test:manage-mcp        # Manage → MCP site connection
+npm run test:manage-approvals  # Manage → Approval queue
 
-# Infrastructure
-npm run test:sitemap           # sitemap.xml + robots.txt
+# Cross-cutting QA
+npm run test:a11y              # Accessibility (axe-core WCAG 2.1 AA)
+npm run test:console           # Console error audit
+npm run test:seo               # SEO meta tag assertions
+npm run test:perf              # Performance budget assertions
+npm run test:security          # Security checks
+npm run test:visual            # Visual regression snapshots
+npm run test:visual:update     # Re-seed visual regression baselines
 ```
 
 ### Run a single spec
@@ -197,18 +193,36 @@ npx playwright show-report reports/playwright-html
 
 ## 🌐 Environment Variables
 
-Create a `.env` file at the repo root:
+Copy `.env.example` to `.env` and fill in your values:
 
 ```
 SPROUTOS_URL=https://sproutos.ai
+
 TEST_USER_EMAIL=qa@example.com
 TEST_USER_PASSWORD=your-test-password
+
 TEST_ADMIN_EMAIL=admin@example.com
 TEST_ADMIN_PASSWORD=your-admin-password
+
+TEST_WP_SITE_URL=https://your-wp-site.com
+TEST_WP_APP_PASSWORD=xxxx xxxx xxxx xxxx xxxx xxxx
+
+TEST_MEMBER_EMAIL=member@example.com
+TEST_MEMBER_PASSWORD=your-member-password
+
+TEST_INVITE_EMAIL=invite@example.com
 ```
 
-`TEST_USER_EMAIL` / `TEST_USER_PASSWORD` are required for all authenticated suites. Tests skip gracefully if missing.
-`TEST_ADMIN_EMAIL` / `TEST_ADMIN_PASSWORD` are required for admin-level suites (roles, token management, Manage Mode).
+| Variable | Required for |
+|---|---|
+| `SPROUTOS_URL` | All tests |
+| `TEST_USER_EMAIL` / `TEST_USER_PASSWORD` | All auth-gated tests |
+| `TEST_ADMIN_EMAIL` / `TEST_ADMIN_PASSWORD` | Team, billing, workspace-owner tests |
+| `TEST_WP_SITE_URL` / `TEST_WP_APP_PASSWORD` | Manage Mode / MCP integration tests |
+| `TEST_MEMBER_EMAIL` / `TEST_MEMBER_PASSWORD` | Invite & team flow tests |
+| `TEST_INVITE_EMAIL` | Invite acceptance flow |
+
+Tests skip gracefully if credentials are missing.
 
 ---
 
@@ -216,49 +230,68 @@ TEST_ADMIN_PASSWORD=your-admin-password
 
 ```
 sproutos-orbit/
-├── checklists/                      # Manual QA checklists
+├── checklists/                          # Manual QA checklists (12 files)
 │   ├── pre-release-checklist.md
-│   ├── performance-checklist.md
+│   ├── functionality-checklist.md
+│   ├── logic-checklist.md
+│   ├── responsiveness-checklist.md
+│   ├── accessibility-checklist.md
+│   ├── cross-browser-checklist.md
+│   ├── console-errors-checklist.md
+│   ├── seo-meta-checklist.md
 │   ├── security-checklist.md
+│   ├── performance-checklist.md
+│   ├── code-quality-checklist.md
 │   └── ui-ux-checklist.md
-├── config/                          # Runtime config (Lighthouse CI, etc.)
-├── docs/                            # Testing guides
+├── config/                              # QA config files
+│   ├── lighthouserc.json                # Lighthouse CI thresholds
+│   ├── performance.config.js            # Core Web Vitals, page & API budgets
+│   ├── visual-regression.config.js      # Snapshot definitions & mask selectors
+│   ├── console.config.js                # Console allow/block rules per feature
+│   ├── axe.config.js                    # axe-core WCAG rules & page list
+│   ├── seo.config.js                    # SEO rules, OG tags, sitemap rules
+│   ├── security-headers.config.js       # Required security headers & CSP rules
+│   └── bundlesize.config.json           # JS/CSS bundle size limits
+├── docs/                                # Testing guides
 │   ├── 01-getting-started.md
 │   ├── 02-test-architecture.md
 │   └── 03-writing-tests.md
-├── scripts/                         # Helpers (lighthouse, run-all)
+├── scripts/                             # QA runner scripts
+│   ├── run-all-tests.sh                 # Full 14-phase QA runner
+│   ├── lighthouse.sh                    # Lighthouse desktop + mobile scanner
+│   └── dashboard-report.sh             # Dashboard test runner + bug report
 ├── tests/
 │   └── sproutos/
-│       ├── login-pages.spec.js          # /login /signup /forgot-password / OAuth
-│       ├── onboarding.spec.js           # First-time onboarding flow
-│       ├── dashboard.spec.js            # Auth-gated dashboard + workspaces
-│       ├── projects.spec.js             # Project creation & management
-│       ├── guided-brief.spec.js         # 6-step guided brief wizard
-│       ├── crawl.spec.js                # Website crawl & analysis
-│       ├── sitemap-editor.spec.js       # Visual sitemap editor
-│       ├── sitemap-chat.spec.js         # AI Sitemap Chat
-│       ├── design.spec.js               # Design editor canvas + variants
-│       ├── colors.spec.js               # Color system & theming
-│       ├── typography.spec.js           # Font management
-│       ├── ai-text.spec.js              # AI text generation
-│       ├── images.spec.js               # Image handling & media
-│       ├── responsive.spec.js           # Multi-viewport rendering
-│       ├── ai-design.spec.js            # AI Design Agent
-│       ├── styleguide.spec.js           # Styleguide & design system
-│       ├── pitch.spec.js                # Pitch concepts & shareable links
-│       ├── comments.spec.js             # Comments & collaboration
-│       ├── export.spec.js               # Export (Elementor, Gutenberg, Figma)
-│       ├── team.spec.js                 # Team management & invites
-│       ├── roles.spec.js                # Roles & permissions
-│       ├── tokens.spec.js               # Token usage & billing
-│       ├── settings.spec.js             # User settings
-│       ├── manage-overview.spec.js      # Manage → Overview tab
-│       ├── manage-actions.spec.js       # Manage → Actions / Playbooks / Automations
-│       ├── manage-build.spec.js         # Manage → Build module lifecycle
-│       ├── manage-connectors.spec.js    # Manage → External connectors
-│       └── sitemap.spec.js              # sitemap.xml + robots.txt
-├── playwright.config.js             # Playwright projects (desktop/tablet/mobile)
-├── qa.config.example.json           # QA config template
+│       ├── dashboard/                   # Dashboard suite (home, sidebar, workspace, settings, security)
+│       ├── homepage.spec.js
+│       ├── login-pages.spec.js
+│       ├── auth.spec.js
+│       ├── guided-brief.spec.js
+│       ├── sitemap-editor.spec.js
+│       ├── design-editor.spec.js
+│       ├── section-variants.spec.js
+│       ├── color-system.spec.js
+│       ├── ai-text-popup.spec.js
+│       ├── image-picker.spec.js
+│       ├── export.spec.js
+│       ├── team-management.spec.js
+│       ├── token-usage.spec.js
+│       ├── user-settings.spec.js
+│       ├── manage-overview.spec.js
+│       ├── manage-actions.spec.js
+│       ├── manage-build.spec.js
+│       ├── manage-mcp.spec.js
+│       ├── manage-approvals.spec.js
+│       ├── accessibility.spec.js
+│       ├── console-errors.spec.js
+│       ├── seo.spec.js
+│       ├── performance.spec.js
+│       ├── security.spec.js
+│       ├── responsive.spec.js
+│       └── visual-regression.spec.js
+├── .env.example                         # Env variable template (copy to .env)
+├── playwright.config.js                 # Playwright projects (desktop/tablet/mobile)
+├── qa.config.example.json               # QA thresholds & area config template
 └── package.json
 ```
 
