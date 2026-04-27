@@ -36,6 +36,14 @@ Your responsibility is to:
 * **Correct conditional rendering**  
 * **No empty, invalid, or unintended states**  
 * **Proper handling of edge cases**
+* **Edge case scenarios to always verify:**
+  * **First-time user experience (FTUE)** — first 60 seconds after onboarding: redirect correct, core feature reachable in ≤ 3 clicks, skip/dismiss doesn't break the flow
+  * **Empty states** — zero data / fresh account: shows guidance, not a blank panel
+  * **Error states** — API 500, network offline, invalid token: user sees a clear message, UI is not frozen
+  * **Loading states** — spinner/skeleton visible during fetch, no layout jump on data arrival
+  * **Form validation edge cases** — empty required fields, max-length, invalid formats, mismatched fields
+  * **Update / migration path** — settings and data preserved after a version upgrade
+  * **RTL layout** — no overflow, correct text direction on right-to-left locales (Arabic / Hebrew)
 
 ### **Security & Vulnerability**
 
@@ -47,11 +55,21 @@ Your responsibility is to:
 
 * **Fast load and smooth interaction**  
 * **No lag, redundant assets, or unnecessary API calls**
+* **Lighthouse score ≥ 80**
+* **LCP (Largest Contentful Paint) < 2.5s**
+* **FCP (First Contentful Paint) < 1.8s**
+* **TBT (Total Blocking Time) < 200ms**
+* **CLS (Cumulative Layout Shift) < 0.1**
+* **TTI (Time to Interactive) < 3.8s**
+* **DB queries: < 60 per page, no single query > 100ms, no N+1 patterns**
+* **JS/CSS bundle size tracked — flag any regression from previous baseline**
 
 ### **Accessibility**
 
 * **Proper contrast, readability, labels**  
-* **Basic semantic and usability compliance**
+* **WCAG 2.1 AA compliance — axe-core score ≥ 85 required for QA sign-off**
+* **Keyboard navigation: Tab order correct, Enter/Space on buttons, Escape closes modals, no focus traps**
+* **All tap targets ≥ 44×44px on touch viewports**
 
 ### **Cross-Browser**
 
@@ -167,6 +185,25 @@ When a bug is marked as fixed:
         * Step 2    
         * Step 3    
       * Expected Result: Correct expected behavior
+
+## **Release Gate**
+
+A QA session may only be marked **QA Passed** at the session level when ALL of the following are true:
+
+| Criterion | Threshold |
+|---|---|
+| All functional tests | Pass |
+| Visual diffs reviewed | Approved |
+| Lighthouse score | ≥ 80 |
+| Accessibility (axe-core) | ≥ 85 |
+| Console errors from the product | Zero |
+| Critical / High bugs open | Zero |
+| LCP | < 2.5s |
+| CLS | < 0.1 |
+
+If **any Critical or High bug remains open**, the session is **QA Failed** — do not mark as passed regardless of other results.
+
+---
 
 ## **Rules**
 
