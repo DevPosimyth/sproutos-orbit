@@ -186,6 +186,23 @@ When a bug is marked as fixed:
         * Step 3    
       * Expected Result: Correct expected behavior
 
+## **Test Suites Reference**
+
+| Suite | Command | Covers |
+|---|---|---|
+| Full sitemap suite | `npm run test:sitemap-suite` | All sitemap spec files |
+| Editor UI | `npm run test:sitemap-editor-ui` | Canvas, toolbar, controls, a11y, performance, responsive |
+| Page management | `npm run test:sitemap-pages` | Add, rename, delete, duplicate, drag-drop, undo |
+| Section management | `npm run test:sitemap-sections` | Add section, remove, reorder, 51+ section types |
+| Global sections | `npm run test:sitemap-global` | Navbar, footer — toggle, edit, persistence |
+| AI Sitemap Chat | `npm run test:sitemap-ai-chat` | Multi-turn chat, mutations, undo, token tracking, error states |
+| Security | `npm run test:sitemap-security` | Auth guard, XSS, CSP, console errors, performance, API health |
+| Dashboard | `npm run test:dashboard` | All 5 dashboard spec files |
+| Auth pages | `npm run test:login` | Login, signup, forgot password |
+| Homepage | `npm run test:homepage` | Homepage QA |
+
+---
+
 ## **Release Gate**
 
 A QA session may only be marked **QA Passed** at the session level when ALL of the following are true:
