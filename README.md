@@ -1,3 +1,10 @@
+> ## ⚠️ Before You Start Any QA
+> **Read the QA Guidelines first — every time, no exceptions.**
+> [`docs/00-qa-guidelines.md`](docs/00-qa-guidelines.md)
+> Covers: environment setup · severity classification · execution process · bug reporting standard · pass/fail thresholds · release gate.
+
+---
+
 # 🌱 Sprout OS Orbit
 ### **The QA Automation Layer for Sprout OS**
 `sproutos.ai`
@@ -217,7 +224,8 @@ sproutos-orbit/
 │   ├── seo.config.js                    # SEO rules, OG tags, sitemap rules
 │   ├── security-headers.config.js       # Required security headers & CSP rules
 │   └── bundlesize.config.json           # JS/CSS bundle size limits
-├── docs/                                # Testing guides
+├── docs/                                # Testing guides & QA reports
+│   ├── 00-qa-guidelines.md              # ⚠️ READ FIRST — QA process, standards, bug format
 │   ├── 01-getting-started.md
 │   ├── 02-test-architecture.md
 │   └── 03-writing-tests.md
