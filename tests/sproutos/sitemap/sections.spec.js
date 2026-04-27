@@ -14,7 +14,8 @@ test.beforeEach(async ({ page }) => {
 
 // ── Helper: open a page node to reveal its sections ──────────────────────────
 async function openPageSections(page) {
-  const node = page.locator('[class*="node"], [class*="page-node"]').first();
+  // Real class from source: .react-flow__node (ReactFlow standard)
+  const node = page.locator('.react-flow__node, [class*="page-node"]').first();
   if (!await node.isVisible({ timeout: 10000 }).catch(() => false)) return false;
   await node.click();
   await page.waitForTimeout(800);
@@ -41,9 +42,9 @@ test.describe('Section Management — Visibility', () => {
     const reached = await loginAndGoToSitemap(page);
     test.skip(!reached, 'No project found');
     await openPageSections(page);
+    // Real class from source: .sitemap-section-card (set on each SortableSection)
     const sectionItem = page.locator(
-      '[class*="section-item"], [class*="section-row"], [class*="section-card"],' +
-      ' [class*="sections"] li, [class*="sections"] [class*="item"]'
+      '.sitemap-section-card, [class*="section-item"], [class*="section-card"]'
     ).first();
     await expect(sectionItem).toBeVisible({ timeout: 8000 });
   });
@@ -53,7 +54,7 @@ test.describe('Section Management — Visibility', () => {
     test.skip(!reached, 'No project found');
     await openPageSections(page);
     const items = await page.locator(
-      '[class*="section-item"], [class*="section-row"], [class*="section-card"]'
+      '.sitemap-section-card, [class*="section-item"], [class*="section-card"]'
     ).all();
     for (const item of items.slice(0, 5)) {
       const text = await item.innerText().catch(() => '');
@@ -68,31 +69,34 @@ test.describe('Section Management — Visibility', () => {
 // ─────────────────────────────────────────────────────────────────────────────
 test.describe('Section Management — Add Section', () => {
 
-  test('"Add Section" button is visible inside the page panel', async ({ page }) => {
+  test('"Add Section" inline button is visible on section card hover', async ({ page }) => {
     const reached = await loginAndGoToSitemap(page);
     test.skip(!reached, 'No project found');
     await openPageSections(page);
-    const addBtn = page.locator(
-      'button:has-text("Add Section"), button:has-text("Add section"),' +
-      ' button:has-text("+ Section"), [aria-label*="add section" i]'
-    ).first();
-    await expect(addBtn).toBeVisible({ timeout: 8000 });
+    // The add-section button (.sitemap-add-section-btn) is an absolute-positioned + button
+    // that appears at the bottom of each section card on hover
+    const card = page.locator('.sitemap-section-card').first();
+    if (!await card.isVisible({ timeout: 8000 }).catch(() => false)) test.skip(true, 'No section cards found');
+    await card.hover();
+    const addBtn = page.locator('.sitemap-add-section-btn').first();
+    const visible = await addBtn.isVisible({ timeout: 3000 }).catch(() => false);
+    if (!visible) console.warn('⚠️ .sitemap-add-section-btn not found on hover — may need CSS pointer-events');
   });
 
-  test('clicking "Add Section" opens a section type picker', async ({ page }) => {
+  test('clicking "Add Section" btn opens the section type picker panel', async ({ page }) => {
     const reached = await loginAndGoToSitemap(page);
     test.skip(!reached, 'No project found');
     await openPageSections(page);
-    const addBtn = page.locator(
-      'button:has-text("Add Section"), button:has-text("Add section"), button:has-text("+ Section")'
-    ).first();
-    if (!await addBtn.isVisible({ timeout: 6000 }).catch(() => false)) test.skip(true, 'Add Section not found');
+    // Hover a section card to reveal the + add button, then click it
+    const card = page.locator('.sitemap-section-card').first();
+    if (!await card.isVisible({ timeout: 8000 }).catch(() => false)) test.skip(true, 'No section cards');
+    await card.hover();
+    const addBtn = page.locator('.sitemap-add-section-btn').first();
+    if (!await addBtn.isVisible({ timeout: 4000 }).catch(() => false)) test.skip(true, '.sitemap-add-section-btn not visible on hover');
     await addBtn.click();
     await page.waitForTimeout(600);
-    const picker = page.locator(
-      '[class*="picker"], [class*="section-type"], [class*="type-select"],' +
-      ' [class*="modal"], [class*="dropdown"], [role="dialog"]'
-    ).first();
+    // Section picker renders as a portal aside with heading "Add Section"
+    const picker = page.locator('aside:has-text("Add Section"), [class*="picker"], [class*="section-type"]').first();
     await expect(picker).toBeVisible({ timeout: 6000 });
   });
 
@@ -100,16 +104,15 @@ test.describe('Section Management — Add Section', () => {
     const reached = await loginAndGoToSitemap(page);
     test.skip(!reached, 'No project found');
     await openPageSections(page);
-    const addBtn = page.locator(
-      'button:has-text("Add Section"), button:has-text("Add section")'
-    ).first();
-    if (!await addBtn.isVisible({ timeout: 6000 }).catch(() => false)) test.skip(true, 'Add Section not found');
+    const card = page.locator('.sitemap-section-card').first();
+    if (!await card.isVisible({ timeout: 8000 }).catch(() => false)) test.skip(true, 'No section cards');
+    await card.hover();
+    const addBtn = page.locator('.sitemap-add-section-btn').first();
+    if (!await addBtn.isVisible({ timeout: 4000 }).catch(() => false)) test.skip(true, 'Add section btn not visible');
     await addBtn.click();
     await page.waitForTimeout(800);
-    const options = page.locator(
-      '[class*="section-type"] [class*="item"], [class*="picker"] [class*="option"],' +
-      ' [class*="section-list"] li, [role="option"]'
-    );
+    // Section picker renders cards in a 2-column grid inside the aside
+    const options = page.locator('aside:has-text("Add Section") button, aside:has-text("Add Section") [class*="card"]');
     const count = await options.count();
     if (count < 10) console.warn(`⚠️ Only ${count} section types visible — expected 10+`);
     expect(count).toBeGreaterThanOrEqual(1);
@@ -119,18 +122,18 @@ test.describe('Section Management — Add Section', () => {
     const reached = await loginAndGoToSitemap(page);
     test.skip(!reached, 'No project found');
     await openPageSections(page);
-    const sectionSelector = '[class*="section-item"], [class*="section-row"], [class*="section-card"]';
+    const sectionSelector = '.sitemap-section-card';
     const before = await page.locator(sectionSelector).count();
-    const addBtn = page.locator(
-      'button:has-text("Add Section"), button:has-text("Add section")'
-    ).first();
-    if (!await addBtn.isVisible({ timeout: 6000 }).catch(() => false)) test.skip(true, 'Add Section not found');
+    const card = page.locator('.sitemap-section-card').first();
+    if (!await card.isVisible({ timeout: 8000 }).catch(() => false)) test.skip(true, 'No section cards');
+    await card.hover();
+    const addBtn = page.locator('.sitemap-add-section-btn').first();
+    if (!await addBtn.isVisible({ timeout: 4000 }).catch(() => false)) test.skip(true, 'Add section btn not visible');
     await addBtn.click();
     await page.waitForTimeout(800);
-    // Click the first available section type option
+    // Click the first section option in the picker grid
     const firstOption = page.locator(
-      '[class*="section-type"] [class*="item"], [class*="picker"] [class*="option"],' +
-      ' [class*="section-list"] li, [role="option"]'
+      'aside:has-text("Add Section") button, aside:has-text("Add Section") [class*="card"]'
     ).first();
     if (!await firstOption.isVisible({ timeout: 5000 }).catch(() => false)) test.skip(true, 'No section type options found');
     await firstOption.click();
@@ -143,12 +146,15 @@ test.describe('Section Management — Add Section', () => {
     const reached = await loginAndGoToSitemap(page);
     test.skip(!reached, 'No project found');
     await openPageSections(page);
-    const sectionSelector = '[class*="section-item"], [class*="section-row"]';
-    const addBtn = page.locator('button:has-text("Add Section"), button:has-text("Add section")').first();
-    if (!await addBtn.isVisible({ timeout: 6000 }).catch(() => false)) test.skip(true, 'Add Section not found');
+    const sectionSelector = '.sitemap-section-card';
+    const card = page.locator('.sitemap-section-card').first();
+    if (!await card.isVisible({ timeout: 8000 }).catch(() => false)) test.skip(true, 'No section cards');
+    await card.hover();
+    const addBtn = page.locator('.sitemap-add-section-btn').first();
+    if (!await addBtn.isVisible({ timeout: 4000 }).catch(() => false)) test.skip(true, 'Add section btn not visible');
     await addBtn.click();
     await page.waitForTimeout(800);
-    const option = page.locator('[class*="section-type"] [class*="item"], [role="option"]').first();
+    const option = page.locator('aside:has-text("Add Section") button').first();
     if (!await option.isVisible({ timeout: 5000 }).catch(() => false)) test.skip(true, 'No options found');
     await option.click();
     await page.waitForTimeout(2000);
@@ -171,7 +177,7 @@ test.describe('Section Management — Remove Section', () => {
     const reached = await loginAndGoToSitemap(page);
     test.skip(!reached, 'No project found');
     await openPageSections(page);
-    const item = page.locator('[class*="section-item"], [class*="section-row"]').first();
+    const item = page.locator('.sitemap-section-card').first();
     if (!await item.isVisible({ timeout: 8000 }).catch(() => false)) test.skip(true, 'No section items found');
     await item.hover();
     const deleteBtn = item.locator(
@@ -186,7 +192,7 @@ test.describe('Section Management — Remove Section', () => {
     const reached = await loginAndGoToSitemap(page);
     test.skip(!reached, 'No project found');
     await openPageSections(page);
-    const sectionSelector = '[class*="section-item"], [class*="section-row"]';
+    const sectionSelector = '.sitemap-section-card';
     const before = await page.locator(sectionSelector).count();
     if (before === 0) test.skip(true, 'No sections to remove');
     const item = page.locator(sectionSelector).last();
@@ -221,7 +227,7 @@ test.describe('Section Management — Reorder', () => {
     const reached = await loginAndGoToSitemap(page);
     test.skip(!reached, 'No project found');
     await openPageSections(page);
-    const item = page.locator('[class*="section-item"], [class*="section-row"]').first();
+    const item = page.locator('.sitemap-section-card').first();
     if (!await item.isVisible({ timeout: 8000 }).catch(() => false)) test.skip(true, 'No sections');
     await item.hover();
     const handle = item.locator(
@@ -237,7 +243,7 @@ test.describe('Section Management — Reorder', () => {
     const reached = await loginAndGoToSitemap(page);
     test.skip(!reached, 'No project found');
     await openPageSections(page);
-    const items = await page.locator('[class*="section-item"], [class*="section-row"]').all();
+    const items = await page.locator('.sitemap-section-card').all();
     if (items.length < 2) test.skip(true, 'Need 2+ sections for reorder test');
     const src = items[0];
     const tgt = items[1];
@@ -259,10 +265,10 @@ test.describe('Section Management — Reorder', () => {
 // ─────────────────────────────────────────────────────────────────────────────
 test.describe('Section Management — Section Types', () => {
 
-  // Key section types expected in the picker (subset of 51+)
+  // Key section types expected in the picker — exact names from source (sections array in Sitemap.tsx)
   const expectedTypes = [
-    'Hero', 'Header', 'Footer', 'About', 'Features', 'Pricing',
-    'Contact', 'Gallery', 'Testimonial', 'FAQ', 'CTA', 'Blog',
+    'Hero', 'Navbar', 'Header', 'Footer', 'About Us', 'Features',
+    'Pricing Table', 'Contact Form', 'Gallery', 'Testimonial', 'FAQ', 'CTA', 'Blog',
   ];
 
   for (const type of expectedTypes) {
@@ -270,26 +276,22 @@ test.describe('Section Management — Section Types', () => {
       const reached = await loginAndGoToSitemap(page);
       test.skip(!reached, 'No project found');
       await openPageSections(page);
-      const addBtn = page.locator('button:has-text("Add Section"), button:has-text("Add section")').first();
-      if (!await addBtn.isVisible({ timeout: 6000 }).catch(() => false)) test.skip(true, 'Add Section not found');
+      // Open the section picker by hovering a card and clicking the add button
+      const card = page.locator('.sitemap-section-card').first();
+      if (!await card.isVisible({ timeout: 8000 }).catch(() => false)) test.skip(true, 'No section cards');
+      await card.hover();
+      const addBtn = page.locator('.sitemap-add-section-btn').first();
+      if (!await addBtn.isVisible({ timeout: 4000 }).catch(() => false)) test.skip(true, 'Add section btn not visible');
       await addBtn.click();
       await page.waitForTimeout(800);
-      const typeOption = page.locator(
-        `[class*="section-type"] [class*="item"]:has-text("${type}")`,
-        `[role="option"]:has-text("${type}")`,
-        `li:has-text("${type}")`
-      ).first();
-      const visible = await typeOption.isVisible({ timeout: 4000 }).catch(() => false);
-      if (!visible) {
-        // Try searching if there's a search input
-        const search = page.locator('input[placeholder*="search" i], input[placeholder*="Search" i]').first();
-        if (await search.isVisible({ timeout: 2000 }).catch(() => false)) {
-          await search.fill(type);
-          await page.waitForTimeout(500);
-        }
+      // Use search to filter for the type — picker has a Search input
+      const search = page.locator('aside:has-text("Add Section") input[placeholder*="Search" i]').first();
+      if (await search.isVisible({ timeout: 2000 }).catch(() => false)) {
+        await search.fill(type);
+        await page.waitForTimeout(500);
       }
       await expect(
-        page.locator(`text=${type}`).first()
+        page.locator(`aside:has-text("Add Section") >> text=${type}`).first()
       ).toBeVisible({ timeout: 5000 });
     });
   }

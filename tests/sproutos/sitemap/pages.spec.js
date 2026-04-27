@@ -19,7 +19,7 @@ test.describe('Page Management — Structure', () => {
   test('at least one page node is rendered on the canvas', async ({ page }) => {
     const reached = await loginAndGoToSitemap(page);
     test.skip(!reached, 'No project found');
-    const nodes = page.locator('[class*="node"], [class*="page-node"], [data-type="page"]');
+    const nodes = page.locator('.react-flow__node, [class*="page-node"], [data-type="page"]');
     await expect(nodes.first()).toBeVisible({ timeout: 15000 });
     const count = await nodes.count();
     expect(count).toBeGreaterThanOrEqual(1);
@@ -29,7 +29,7 @@ test.describe('Page Management — Structure', () => {
     const reached = await loginAndGoToSitemap(page);
     test.skip(!reached, 'No project found');
     const homeNode = page.locator(
-      '[class*="node"]:has-text("Home"), [class*="node"]:has-text("home"),' +
+      '.react-flow__node:has-text("Home"), .react-flow__node:has-text("home"),' +
       ' [data-page-type="home"], [class*="home-node"]'
     ).first();
     const visible = await homeNode.isVisible({ timeout: 8000 }).catch(() => false);
@@ -40,7 +40,7 @@ test.describe('Page Management — Structure', () => {
   test('each page node shows the page name text', async ({ page }) => {
     const reached = await loginAndGoToSitemap(page);
     test.skip(!reached, 'No project found');
-    const nodes = await page.locator('[class*="node"], [class*="page-node"]').all();
+    const nodes = await page.locator('.react-flow__node, [class*="page-node"]').all();
     for (const node of nodes.slice(0, 5)) {
       const text = await node.innerText().catch(() => '');
       expect(text.trim().length, 'Page node has no name').toBeGreaterThan(0);
@@ -50,7 +50,7 @@ test.describe('Page Management — Structure', () => {
   test('nodes are connected by edges or lines on the canvas', async ({ page }) => {
     const reached = await loginAndGoToSitemap(page);
     test.skip(!reached, 'No project found');
-    const nodeCount = await page.locator('[class*="node"], [class*="page-node"]').count();
+    const nodeCount = await page.locator('.react-flow__node, [class*="page-node"]').count();
     if (nodeCount < 2) test.skip(true, 'Only one node — no edges expected');
     const edge = page.locator(
       '[class*="edge"], [class*="connector"], [class*="line"], svg path, svg line'
@@ -68,9 +68,10 @@ test.describe('Page Management — Add Page', () => {
   test('"Add Page" button is visible and clickable', async ({ page }) => {
     const reached = await loginAndGoToSitemap(page);
     test.skip(!reached, 'No project found');
+    // Real class from source: .sitemap-add-page-btn (rendered inside the AddNode)
     const addBtn = page.locator(
-      'button:has-text("Add Page"), button:has-text("Add page"), button:has-text("+ Page"),' +
-      ' [aria-label*="add page" i], [class*="add-page"]'
+      '.sitemap-add-page-btn, button:has-text("Add Page"), button:has-text("Add page"),' +
+      ' button:has-text("+ Page"), [aria-label*="add page" i]'
     ).first();
     await expect(addBtn).toBeVisible({ timeout: 10000 });
     await expect(addBtn).toBeEnabled();
@@ -79,12 +80,11 @@ test.describe('Page Management — Add Page', () => {
   test('clicking "Add Page" increases the node count by one', async ({ page }) => {
     const reached = await loginAndGoToSitemap(page);
     test.skip(!reached, 'No project found');
-    const nodeSelector = '[class*="node"], [class*="page-node"]';
+    const nodeSelector = '.react-flow__node';
     const before = await page.locator(nodeSelector).count();
 
     const addBtn = page.locator(
-      'button:has-text("Add Page"), button:has-text("Add page"), button:has-text("+ Page"),' +
-      ' [aria-label*="add page" i]'
+      '.sitemap-add-page-btn, button:has-text("Add Page"), button:has-text("Add page")'
     ).first();
     if (!await addBtn.isVisible({ timeout: 6000 }).catch(() => false)) {
       test.skip(true, 'Add Page button not found');
@@ -99,12 +99,12 @@ test.describe('Page Management — Add Page', () => {
     const reached = await loginAndGoToSitemap(page);
     test.skip(!reached, 'No project found');
     const addBtn = page.locator(
-      'button:has-text("Add Page"), button:has-text("Add page")'
+      '.sitemap-add-page-btn, button:has-text("Add Page"), button:has-text("Add page")'
     ).first();
     if (!await addBtn.isVisible({ timeout: 6000 }).catch(() => false)) test.skip(true, 'Add Page button not found');
     await addBtn.click();
     await page.waitForTimeout(1500);
-    const nodes = await page.locator('[class*="node"], [class*="page-node"]').all();
+    const nodes = await page.locator('.react-flow__node, [class*="page-node"]').all();
     const last = nodes[nodes.length - 1];
     const text = await last.innerText().catch(() => '');
     expect(text.trim().length).toBeGreaterThan(0);
@@ -116,7 +116,7 @@ test.describe('Page Management — Add Page', () => {
     const reached = await loginAndGoToSitemap(page);
     test.skip(!reached, 'No project found');
     const addBtn = page.locator(
-      'button:has-text("Add Page"), button:has-text("Add page")'
+      '.sitemap-add-page-btn, button:has-text("Add Page"), button:has-text("Add page")'
     ).first();
     if (!await addBtn.isVisible({ timeout: 6000 }).catch(() => false)) test.skip(true, 'Add Page button not found');
     await addBtn.click();
@@ -127,14 +127,14 @@ test.describe('Page Management — Add Page', () => {
   test('add page is persisted — node remains after page refresh', async ({ page }) => {
     const reached = await loginAndGoToSitemap(page);
     test.skip(!reached, 'No project found');
-    const addBtn = page.locator('button:has-text("Add Page"), button:has-text("Add page")').first();
+    const addBtn = page.locator('.sitemap-add-page-btn, button:has-text("Add Page"), button:has-text("Add page")').first();
     if (!await addBtn.isVisible({ timeout: 6000 }).catch(() => false)) test.skip(true, 'Add Page button not found');
     await addBtn.click();
     await page.waitForTimeout(2000);
-    const before = await page.locator('[class*="node"], [class*="page-node"]').count();
+    const before = await page.locator('.react-flow__node').count();
     await page.reload();
     await page.waitForLoadState('networkidle');
-    const after = await page.locator('[class*="node"], [class*="page-node"]').count();
+    const after = await page.locator('.react-flow__node').count();
     expect(after).toBeGreaterThanOrEqual(before);
   });
 
@@ -148,7 +148,7 @@ test.describe('Page Management — Rename Page', () => {
   test('double-clicking a page node enables inline rename', async ({ page }) => {
     const reached = await loginAndGoToSitemap(page);
     test.skip(!reached, 'No project found');
-    const node = page.locator('[class*="node"], [class*="page-node"]').first();
+    const node = page.locator('.react-flow__node').first();
     if (!await node.isVisible({ timeout: 8000 }).catch(() => false)) test.skip(true, 'No node found');
     await node.dblclick();
     const input = page.locator('input[type="text"], [contenteditable="true"]').first();
@@ -159,7 +159,7 @@ test.describe('Page Management — Rename Page', () => {
   test('right-click context menu on node contains a Rename option', async ({ page }) => {
     const reached = await loginAndGoToSitemap(page);
     test.skip(!reached, 'No project found');
-    const node = page.locator('[class*="node"], [class*="page-node"]').first();
+    const node = page.locator('.react-flow__node').first();
     if (!await node.isVisible({ timeout: 8000 }).catch(() => false)) test.skip(true, 'No node found');
     await node.click({ button: 'right' });
     await page.waitForTimeout(500);
@@ -172,7 +172,7 @@ test.describe('Page Management — Rename Page', () => {
   test('renamed page name is reflected on the canvas node', async ({ page }) => {
     const reached = await loginAndGoToSitemap(page);
     test.skip(!reached, 'No project found');
-    const node = page.locator('[class*="node"], [class*="page-node"]').first();
+    const node = page.locator('.react-flow__node').first();
     if (!await node.isVisible({ timeout: 8000 }).catch(() => false)) test.skip(true, 'No node found');
     // Try right-click rename
     await node.click({ button: 'right' });
@@ -194,13 +194,13 @@ test.describe('Page Management — Rename Page', () => {
     await input.fill('QA Renamed Page');
     await input.press('Enter');
     await page.waitForTimeout(800);
-    await expect(page.locator('[class*="node"]:has-text("QA Renamed Page")').first()).toBeVisible({ timeout: 5000 });
+    await expect(page.locator('.react-flow__node:has-text("QA Renamed Page")').first()).toBeVisible({ timeout: 5000 });
   });
 
   test('page name cannot be set to empty string', async ({ page }) => {
     const reached = await loginAndGoToSitemap(page);
     test.skip(!reached, 'No project found');
-    const node = page.locator('[class*="node"], [class*="page-node"]').first();
+    const node = page.locator('.react-flow__node').first();
     if (!await node.isVisible({ timeout: 8000 }).catch(() => false)) test.skip(true, 'No node found');
     const originalName = await node.innerText().catch(() => '');
     await node.dblclick();
@@ -225,7 +225,7 @@ test.describe('Page Management — Duplicate Page', () => {
   test('right-click context menu has a Duplicate option', async ({ page }) => {
     const reached = await loginAndGoToSitemap(page);
     test.skip(!reached, 'No project found');
-    const node = page.locator('[class*="node"], [class*="page-node"]').first();
+    const node = page.locator('.react-flow__node').first();
     if (!await node.isVisible({ timeout: 8000 }).catch(() => false)) test.skip(true, 'No node found');
     await node.click({ button: 'right' });
     await page.waitForTimeout(400);
@@ -238,7 +238,7 @@ test.describe('Page Management — Duplicate Page', () => {
   test('duplicating a page adds a new node to the canvas', async ({ page }) => {
     const reached = await loginAndGoToSitemap(page);
     test.skip(!reached, 'No project found');
-    const nodeSelector = '[class*="node"], [class*="page-node"]';
+    const nodeSelector = '.react-flow__node';
     const node = page.locator(nodeSelector).first();
     if (!await node.isVisible({ timeout: 8000 }).catch(() => false)) test.skip(true, 'No node found');
     const before = await page.locator(nodeSelector).count();
@@ -264,7 +264,7 @@ test.describe('Page Management — Delete Page', () => {
   test('right-click context menu has a Delete option', async ({ page }) => {
     const reached = await loginAndGoToSitemap(page);
     test.skip(!reached, 'No project found');
-    const node = page.locator('[class*="node"], [class*="page-node"]').first();
+    const node = page.locator('.react-flow__node').first();
     if (!await node.isVisible({ timeout: 8000 }).catch(() => false)) test.skip(true, 'No node found');
     await node.click({ button: 'right' });
     await page.waitForTimeout(400);
@@ -279,7 +279,7 @@ test.describe('Page Management — Delete Page', () => {
     const reached = await loginAndGoToSitemap(page);
     test.skip(!reached, 'No project found');
     const homeNode = page.locator(
-      '[class*="node"]:has-text("Home"), [data-page-type="home"]'
+      '.react-flow__node:has-text("Home"), [data-page-type="home"]'
     ).first();
     if (!await homeNode.isVisible({ timeout: 6000 }).catch(() => false)) test.skip(true, 'Home node not identified');
     await homeNode.click({ button: 'right' });
@@ -298,11 +298,11 @@ test.describe('Page Management — Delete Page', () => {
     const reached = await loginAndGoToSitemap(page);
     test.skip(!reached, 'No project found');
     // First add a page so we have one to delete
-    const addBtn = page.locator('button:has-text("Add Page"), button:has-text("Add page")').first();
+    const addBtn = page.locator('.sitemap-add-page-btn, button:has-text("Add Page"), button:has-text("Add page")').first();
     if (!await addBtn.isVisible({ timeout: 6000 }).catch(() => false)) test.skip(true, 'Add Page not found');
     await addBtn.click();
     await page.waitForTimeout(1500);
-    const nodeSelector = '[class*="node"], [class*="page-node"]';
+    const nodeSelector = '.react-flow__node';
     const before = await page.locator(nodeSelector).count();
     // Right-click the last node (newly added)
     const nodes = await page.locator(nodeSelector).all();
@@ -329,7 +329,7 @@ test.describe('Page Management — Drag & Drop', () => {
     page.on('pageerror', e => errors.push(e.message));
     const reached = await loginAndGoToSitemap(page);
     test.skip(!reached, 'No project found');
-    const nodes = await page.locator('[class*="node"], [class*="page-node"]').all();
+    const nodes = await page.locator('.react-flow__node, [class*="page-node"]').all();
     if (nodes.length < 2) test.skip(true, 'Need at least 2 nodes for drag test');
     const source = nodes[nodes.length - 1];
     const target = nodes[0];
@@ -354,8 +354,8 @@ test.describe('Page Management — Undo / Redo', () => {
   test('Ctrl+Z after adding a page removes the newly added node', async ({ page }) => {
     const reached = await loginAndGoToSitemap(page);
     test.skip(!reached, 'No project found');
-    const nodeSelector = '[class*="node"], [class*="page-node"]';
-    const addBtn = page.locator('button:has-text("Add Page"), button:has-text("Add page")').first();
+    const nodeSelector = '.react-flow__node';
+    const addBtn = page.locator('.sitemap-add-page-btn, button:has-text("Add Page"), button:has-text("Add page")').first();
     if (!await addBtn.isVisible({ timeout: 6000 }).catch(() => false)) test.skip(true, 'Add Page not found');
     await addBtn.click();
     await page.waitForTimeout(1200);

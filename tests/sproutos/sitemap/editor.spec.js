@@ -33,7 +33,7 @@ test.describe('Sitemap Editor — UI & Layout', () => {
     const reached = await loginAndGoToSitemap(page);
     test.skip(!reached, 'No project found');
     const canvas = page.locator(
-      '[class*="canvas"], [class*="sitemap"], [class*="flow"], [class*="node-container"], svg'
+      '.react-flow__pane, .react-flow__viewport, .react-flow__renderer, [class*="flow"], svg'
     ).first();
     await expect(canvas).toBeVisible({ timeout: 15000 });
   });
@@ -51,7 +51,7 @@ test.describe('Sitemap Editor — UI & Layout', () => {
     const reached = await loginAndGoToSitemap(page);
     test.skip(!reached, 'No project found');
     const node = page.locator(
-      '[class*="node"], [class*="page-node"], [class*="sitemap-node"], [data-type="page"]'
+      '.react-flow__node, [class*="sitemap-node"], [data-type="page"]'
     ).first();
     await expect(node).toBeVisible({ timeout: 15000 });
   });
@@ -60,7 +60,7 @@ test.describe('Sitemap Editor — UI & Layout', () => {
     const reached = await loginAndGoToSitemap(page);
     test.skip(!reached, 'No project found');
     const node = page.locator(
-      '[class*="node"], [class*="page-node"], [class*="sitemap-node"]'
+      '.react-flow__node, [class*="sitemap-node"]'
     ).first();
     await expect(node).toBeVisible({ timeout: 15000 });
     const text = await node.innerText().catch(() => '');
@@ -102,8 +102,8 @@ test.describe('Sitemap Editor — Toolbar & Controls', () => {
     const reached = await loginAndGoToSitemap(page);
     test.skip(!reached, 'No project found');
     const addBtn = page.locator(
-      'button:has-text("Add Page"), button:has-text("Add page"), button:has-text("+ Page"),' +
-      ' [aria-label*="add page" i], [class*="add-page"]'
+      '.sitemap-add-page-btn, button:has-text("Add Page"), button:has-text("Add page"),' +
+      ' button:has-text("+ Page"), [aria-label*="add page" i]'
     ).first();
     await expect(addBtn).toBeVisible({ timeout: 10000 });
   });
@@ -132,9 +132,9 @@ test.describe('Sitemap Editor — Toolbar & Controls', () => {
   test('AI suggestions button or panel trigger is present', async ({ page }) => {
     const reached = await loginAndGoToSitemap(page);
     test.skip(!reached, 'No project found');
+    // AI chat toggle is a fixed bottom-right button with class .ai-chat-toggle
     const aiBtn = page.locator(
-      'button:has-text("AI"), [aria-label*="AI" i], [class*="ai-suggest"],' +
-      ' button:has-text("Suggest"), button:has-text("Chat")'
+      '.ai-chat-toggle, button:has-text("AI"), [aria-label*="AI" i], [class*="ai-suggest"]'
     ).first();
     await expect(aiBtn).toBeVisible({ timeout: 10000 });
   });
@@ -175,7 +175,7 @@ test.describe('Sitemap Editor — Canvas Interaction', () => {
     test.skip(!reached, 'No project found');
     const errors = [];
     page.on('pageerror', e => errors.push(e.message));
-    const canvas = page.locator('[class*="canvas"], [class*="flow"], svg').first();
+    const canvas = page.locator('.react-flow__pane, .react-flow__viewport, [class*="flow"], svg').first();
     const box = await canvas.boundingBox().catch(() => null);
     if (box) {
       await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
@@ -192,7 +192,7 @@ test.describe('Sitemap Editor — Canvas Interaction', () => {
     test.skip(!reached, 'No project found');
     const errors = [];
     page.on('pageerror', e => errors.push(e.message));
-    const node = page.locator('[class*="node"], [class*="page-node"]').first();
+    const node = page.locator('.react-flow__node, [class*="page-node"]').first();
     if (await node.isVisible({ timeout: 8000 }).catch(() => false)) {
       await node.click();
       await page.waitForTimeout(600);
@@ -203,7 +203,7 @@ test.describe('Sitemap Editor — Canvas Interaction', () => {
   test('clicking a page node opens a detail panel or context menu', async ({ page }) => {
     const reached = await loginAndGoToSitemap(page);
     test.skip(!reached, 'No project found');
-    const node = page.locator('[class*="node"], [class*="page-node"]').first();
+    const node = page.locator('.react-flow__node, [class*="page-node"]').first();
     if (!await node.isVisible({ timeout: 8000 }).catch(() => false)) {
       test.skip(true, 'No node visible');
     }
@@ -290,7 +290,7 @@ test.describe('Sitemap Editor — Accessibility', () => {
   test('page nodes have readable text (not empty)', async ({ page }) => {
     const reached = await loginAndGoToSitemap(page);
     test.skip(!reached, 'No project found');
-    const nodes = await page.locator('[class*="node"], [class*="page-node"]').all();
+    const nodes = await page.locator('.react-flow__node, [class*="page-node"]').all();
     for (const node of nodes.slice(0, 5)) {
       const text = await node.innerText().catch(() => '');
       expect(text.trim().length, 'Node has no readable text').toBeGreaterThan(0);

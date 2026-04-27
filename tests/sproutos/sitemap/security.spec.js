@@ -43,7 +43,7 @@ test.describe('Sitemap Editor — Auth Guard', () => {
   test('accessing another user\'s project sitemap returns 403 or redirects', async ({ page }) => {
     await login(page);
     // Use a fabricated / non-owned project ID
-    await page.goto('/projects/000000000000000000000000/sitemap');
+    await page.goto('/project/sitemap?id=000000000000000000000000');
     await page.waitForLoadState('domcontentloaded');
     const url = page.url();
     const status403 = await page.evaluate(() => {
@@ -93,7 +93,7 @@ test.describe('Sitemap Editor — XSS Prevention', () => {
     const reached = await loginAndGoToSitemap(page);
     test.skip(!reached, 'No project found');
     await page.evaluate(() => { window.__xss_sitemap = false; });
-    const node = page.locator('[class*="node"], [class*="page-node"]').first();
+    const node = page.locator('.react-flow__node').first();
     if (!await node.isVisible({ timeout: 8000 }).catch(() => false)) test.skip(true, 'No node found');
     // Try to trigger rename
     await node.dblclick();
@@ -117,15 +117,13 @@ test.describe('Sitemap Editor — XSS Prevention', () => {
     const reached = await loginAndGoToSitemap(page);
     test.skip(!reached, 'No project found');
     await page.evaluate(() => { window.__xss_chat = false; });
-    const trigger = page.locator(
-      'button:has-text("AI"), button:has-text("Chat"), [class*="ai-chat"]'
-    ).first();
+    // Real class from source: .ai-chat-toggle (fixed bottom-right Sparkle button)
+    const trigger = page.locator('.ai-chat-toggle, [class*="ai-chat"]').first();
     if (!await trigger.isVisible({ timeout: 8000 }).catch(() => false)) test.skip(true, 'AI chat trigger not found');
     await trigger.click();
     await page.waitForTimeout(600);
     const input = page.locator(
-      '[class*="chat"] textarea, [class*="chat"] [contenteditable="true"],' +
-      ' [class*="chat"] input[type="text"]'
+      'textarea[placeholder="Chat with SproutOS AI"], [class*="chat"] textarea'
     ).first();
     if (!await input.isVisible({ timeout: 5000 }).catch(() => false)) test.skip(true, 'Chat input not found');
     await input.fill('<img src=x onerror="window.__xss_chat=true">');
@@ -193,7 +191,7 @@ test.describe('Sitemap Editor — Console Errors', () => {
     page.on('pageerror', e => errors.push(e.message));
     const reached = await loginAndGoToSitemap(page);
     test.skip(!reached, 'No project found');
-    const nodes = await page.locator('[class*="node"], [class*="page-node"]').all();
+    const nodes = await page.locator('.react-flow__node').all();
     for (const node of nodes.slice(0, 3)) {
       await node.click().catch(() => {});
       await page.waitForTimeout(400);
@@ -279,14 +277,14 @@ test.describe('Sitemap Editor — Performance', () => {
   test('adding a page node responds within 3 seconds', async ({ page }) => {
     const reached = await loginAndGoToSitemap(page);
     test.skip(!reached, 'No project found');
-    const addBtn = page.locator('button:has-text("Add Page"), button:has-text("Add page")').first();
+    const addBtn = page.locator('.sitemap-add-page-btn, button:has-text("Add Page"), button:has-text("Add page")').first();
     if (!await addBtn.isVisible({ timeout: 6000 }).catch(() => false)) test.skip(true, 'Add Page not found');
-    const before = await page.locator('[class*="node"], [class*="page-node"]').count();
+    const before = await page.locator('.react-flow__node').count();
     const start = Date.now();
     await addBtn.click();
     // Wait for DOM to reflect new node
     await page.waitForFunction(
-      (b) => document.querySelectorAll('[class*="node"], [class*="page-node"]').length > b,
+      (b) => document.querySelectorAll('.react-flow__node').length > b,
       before,
       { timeout: 5000 }
     ).catch(() => {});
