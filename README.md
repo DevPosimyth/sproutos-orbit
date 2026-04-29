@@ -96,8 +96,9 @@ Reachability, schema validity, URL reachability spot-checks.
 
 ## 🧰 Stack
 
-| Tool | Version | Check |
+| Package | Version | Check |
 |---|---|---|
+| **Orbit** (this repo) | v2.5.0 | — |
 | Node.js | v18+ | `node --version` |
 | npm | v8+ | `npm --version` |
 | Git | any | `git --version` |
