@@ -1,6 +1,6 @@
 {
   "name": "sproutos-orbit",
-  "version": "1.0.0",
+  "version": "2.5.0",
   "main": "index.js",
   "description": "QA Automation framework for Sprout OS (sproutos.ai) — POSIMYTH's AI-powered SaaS platform.",
   "author": "POSIMYTH",
