@@ -1,5 +1,4 @@
 node_modules/
-reports/
 .auth/
 tmp/
 test-results/
@@ -8,3 +7,14 @@ playwright-report/
 .env.local
 .env.test
 qa.config.json
+
+# Auto-generated reports (ignored) — manually written bug reports are tracked
+reports/playwright-html/
+reports/full-qa/
+reports/lighthouse/
+reports/performance/
+reports/accessibility/
+reports/a11y/
+reports/seo/
+reports/links/
+reports/skill-audits/
