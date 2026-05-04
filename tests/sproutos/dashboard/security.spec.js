@@ -238,10 +238,7 @@ test.describe('Console Errors — Dashboard', () => {
       !e.includes('hydration') && // Next.js hydration warnings are acceptable
       !e.includes('ResizeObserver')
     );
-    if (criticalErrors.length > 0) {
-      console.log('Console errors found:', criticalErrors);
-    }
-    expect(criticalErrors.length).toBe(0);
+    expect(criticalErrors, `Console errors: ${criticalErrors.join('; ')}`).toHaveLength(0);
   });
 
   test('no console errors on workspace tab navigation', async ({ page }) => {
@@ -601,11 +598,8 @@ test.describe('Network & API Health', () => {
     await page.waitForLoadState('networkidle');
     await page.waitForTimeout(2000);
 
-    if (failedRequests.length > 0) {
-      console.log('Failed requests:', failedRequests);
-    }
     // Allow up to 2 minor failures (e.g. analytics, optional resources)
-    expect(failedRequests.length).toBeLessThanOrEqual(2);
+    expect(failedRequests.length, `Failed requests: ${failedRequests.join('; ')}`).toBeLessThanOrEqual(2);
   });
 
   test('workspace API responds within 3 seconds', async ({ page }) => {

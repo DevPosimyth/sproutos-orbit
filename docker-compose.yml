@@ -1,0 +1,22 @@
+# =============================================================================
+# Sprout OS Orbit — Docker Compose for Playwright Tests
+# Usage:
+#   docker compose run --rm sproutos-qa                          # dashboard only
+#   docker compose run --rm sproutos-qa npx playwright test tests/sproutos/dashboard/ --reporter=html
+#   docker compose run --rm sproutos-qa npx playwright test --project=sproutos-desktop
+# =============================================================================
+
+services:
+  sproutos-qa:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    env_file:
+      - .env
+    volumes:
+      # Mount reports out so they persist on host after container exits
+      - ./reports:/app/reports
+      - ./test-results:/app/test-results
+    shm_size: '2gb'
+    # Override CMD at runtime to run specific tests
+    # Default runs full dashboard suite
