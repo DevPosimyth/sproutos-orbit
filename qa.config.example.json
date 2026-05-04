@@ -24,6 +24,7 @@
     "createMode": [
       "homepage",
       "auth",
+      "dashboard",
       "guided-brief",
       "sitemap-editor",
       "design-editor",
@@ -102,12 +103,6 @@
     "visualRegressionDir":"reports/visual-regression",
     "perfDir":            "reports/perf",
     "bugReport":          "docs/dashboard-qa-report.md"
-  },
+  }
 
-  "skipList": [
-    { "key": "ai-design-agent",  "reason": "AI responses non-deterministic — visual output changes per run" },
-    { "key": "pitch-concepts",   "reason": "Color concepts generated dynamically — intentional variance" },
-    { "key": "guided-brief",     "reason": "Multi-step wizard state too variable for automated snapshot" },
-    { "key": "process-thread",   "reason": "Claude output text non-deterministic" }
-  ]
 }
